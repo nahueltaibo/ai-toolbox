@@ -1,5 +1,5 @@
 param(
-    # Local ai-framework checkout to read from instead of downloading from GitHub. Defaults to this
+    # Local ai-toolbox checkout to read from instead of downloading from GitHub. Defaults to this
     # script's own repo root when run from a real file inside one (so a local checkout just works
     # with no flags); stays empty when piped in via `irm | iex`, where there's no real file on disk.
     [string]$Source = $(
@@ -20,7 +20,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$RawBase = "https://raw.githubusercontent.com/nahueltaibo/ai-framework/main"
+$RawBase = "https://raw.githubusercontent.com/nahueltaibo/ai-toolbox/main"
 
 function Write-Utf8NoBom([string]$Path, [string]$Content) {
     $dir = Split-Path -Parent $Path
@@ -433,7 +433,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         exit 0
     }
 
-    Write-Host "ai-framework installer" -ForegroundColor Cyan
+    Write-Host "ai-toolbox installer" -ForegroundColor Cyan
     Show-Table $tools $userState $repoRoot $repoState
 
     $itemLabels = @("All tools")

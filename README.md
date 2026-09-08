@@ -1,15 +1,15 @@
-# ai-framework
+# ai-toolbox
 
 Personal AI tooling — skills, agents, instructions, whatever shape a given piece takes — packaged so you can pull it into any machine or repo with one command, on whatever AI coding tool you use.
 
 ## Install
 
 ```powershell
-irm https://raw.githubusercontent.com/nahueltaibo/ai-framework/main/installer/install.ps1 | iex
+irm https://raw.githubusercontent.com/nahueltaibo/ai-toolbox/main/installer/install.ps1 | iex
 ```
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nahueltaibo/ai-framework/main/installer/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nahueltaibo/ai-toolbox/main/installer/install.sh | bash
 ```
 
 Either command downloads the installer and runs it — no clone, no dependencies beyond PowerShell or `curl`+bash. It shows you a table of what's available, where each one is already installed (and at what version), and lets you pick what to install, update, or remove.
