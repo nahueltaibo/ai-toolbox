@@ -51,18 +51,108 @@ Describe "Format-Status" {
         $tool = [PSCustomObject]@{ id = "foo"; version = "2.0.0" }
     }
 
-    It "reports 'not installed' when there's no entry" {
-        Format-Status @() $tool | Should -Be "not installed"
+    It "reports 'not installed' when there's no installed version" {
+        Format-Status $null $tool | Should -Be "not installed"
     }
 
     It "reports the current version when it matches the registry" {
-        $installs = @([PSCustomObject]@{ id = "foo"; version = "2.0.0" })
-        Format-Status $installs $tool | Should -Be "v2.0.0"
+        Format-Status "2.0.0" $tool | Should -Be "v2.0.0"
     }
 
     It "reports an upgrade arrow when the installed version is behind the registry" {
-        $installs = @([PSCustomObject]@{ id = "foo"; version = "1.0.0" })
-        Format-Status $installs $tool | Should -Be "v1.0.0 -> v2.0.0"
+        Format-Status "1.0.0" $tool | Should -Be "v1.0.0 -> v2.0.0"
+    }
+}
+
+Describe "Get-SectionVersion" {
+    It "returns null when the marker isn't present" {
+        Get-SectionVersion "# CLAUDE.md`n`nsome notes" "output-guidelines" | Should -BeNullOrEmpty
+    }
+
+    It "extracts the version from the start marker" {
+        $content = "<!-- ai-framework:output-guidelines:v1.2.0:start -->`nbody`n<!-- ai-framework:output-guidelines:end -->"
+        Get-SectionVersion $content "output-guidelines" | Should -Be "1.2.0"
+    }
+}
+
+Describe "Get-EffectiveInstalledVersion" {
+    BeforeAll {
+        $skillTool = [PSCustomObject]@{ id = "demo-skill"; type = "skill"; version = "1.0.0" }
+        $instrTool = [PSCustomObject]@{ id = "output-guidelines"; type = "instructions"; version = "1.0.0" }
+    }
+
+    It "reads from the install-state array for a skill tool" {
+        $installs = @([PSCustomObject]@{ id = "demo-skill"; version = "1.0.0" })
+        Get-EffectiveInstalledVersion $skillTool $installs "C:\doesnt\matter\CLAUDE.md" | Should -Be "1.0.0"
+    }
+
+    It "returns null for an instructions tool when the target file doesn't exist" {
+        $missing = Join-Path ([System.IO.Path]::GetTempPath()) ([Guid]::NewGuid().ToString() + ".md")
+        Get-EffectiveInstalledVersion $instrTool @() $missing | Should -BeNullOrEmpty
+    }
+
+    It "reads the version from the marker in the target file for an instructions tool" {
+        $tempFile = Join-Path ([System.IO.Path]::GetTempPath()) ("aiframework-effver-" + [Guid]::NewGuid() + ".md")
+        try {
+            Write-Utf8NoBom -Path $tempFile -Content "<!-- ai-framework:output-guidelines:v1.0.0:start -->`nbody`n<!-- ai-framework:output-guidelines:end -->"
+            Get-EffectiveInstalledVersion $instrTool @() $tempFile | Should -Be "1.0.0"
+        }
+        finally {
+            if (Test-Path $tempFile) { Remove-Item -Force $tempFile }
+        }
+    }
+}
+
+Describe "Set-Section / Remove-Section" {
+    BeforeEach {
+        $tempFile = Join-Path ([System.IO.Path]::GetTempPath()) ("aiframework-section-" + [Guid]::NewGuid() + ".md")
+        $tool = [PSCustomObject]@{ id = "output-guidelines"; version = "1.0.0" }
+    }
+
+    AfterEach {
+        if (Test-Path $tempFile) { Remove-Item -Force $tempFile }
+    }
+
+    It "creates the file when it doesn't exist yet" {
+        Set-Section $tempFile $tool "Rule body"
+        Test-Path $tempFile | Should -BeTrue
+        Get-Content -Raw $tempFile | Should -Match "<!-- ai-framework:output-guidelines:v1.0.0:start -->"
+    }
+
+    It "appends the section below existing content without disturbing it" {
+        Write-Utf8NoBom -Path $tempFile -Content "# My CLAUDE.md`n`nsome existing notes"
+        Set-Section $tempFile $tool "Rule body"
+        $content = Get-Content -Raw $tempFile
+        $content | Should -Match "some existing notes"
+        $content | Should -Match "Rule body"
+    }
+
+    It "replaces an existing block in place on update, preserving surrounding content and the newest version" {
+        Write-Utf8NoBom -Path $tempFile -Content "# My CLAUDE.md`n`nsome existing notes"
+        Set-Section $tempFile $tool "old body"
+        $newTool = [PSCustomObject]@{ id = "output-guidelines"; version = "1.1.0" }
+        Set-Section $tempFile $newTool "new body"
+        $content = Get-Content -Raw $tempFile
+        $content | Should -Match "some existing notes"
+        $content | Should -Not -Match "old body"
+        $content | Should -Match "new body"
+        $content | Should -Match "v1.1.0:start"
+        ([regex]::Matches($content, "ai-framework:output-guidelines:v\S+:start")).Count | Should -Be 1
+    }
+
+    It "Remove-Section deletes the block and leaves the rest of the file intact" {
+        Write-Utf8NoBom -Path $tempFile -Content "# My CLAUDE.md`n`nsome existing notes"
+        Set-Section $tempFile $tool "Rule body"
+        Remove-Section $tempFile $tool.id
+        $content = Get-Content -Raw $tempFile
+        $content | Should -Match "some existing notes"
+        $content | Should -Not -Match "ai-framework:output-guidelines"
+    }
+
+    It "Remove-Section is a no-op when the file has no matching block" {
+        Write-Utf8NoBom -Path $tempFile -Content "# My CLAUDE.md`n`nsome existing notes"
+        Remove-Section $tempFile $tool.id
+        Get-Content -Raw $tempFile | Should -Match "some existing notes"
     }
 }
 
@@ -210,6 +300,46 @@ Describe "Install-Tool and Remove-Tool (repo scope)" {
 
     It "removing the only entry deletes the repo state file" {
         Test-Path (Join-Path $fakeRepo ".ai-framework-installed.json") | Should -BeFalse
+    }
+}
+
+Describe "Install-Tool and Remove-Tool (instructions type, repo scope)" {
+    BeforeAll {
+        $fakeSource = Join-Path ([System.IO.Path]::GetTempPath()) ("aiframework-source-" + [Guid]::NewGuid())
+        $fakeRepo = Join-Path ([System.IO.Path]::GetTempPath()) ("aiframework-repo-" + [Guid]::NewGuid())
+        New-Item -ItemType Directory -Force -Path (Join-Path $fakeSource "instructions\output-guidelines") | Out-Null
+        New-Item -ItemType Directory -Force -Path $fakeRepo | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $fakeSource "instructions\output-guidelines\CONTENT.md"), "# Writing Rules`n`nLead with the answer.", (New-Object System.Text.UTF8Encoding($false)))
+        # Pre-existing repo CLAUDE.md content that must survive install/update/remove untouched.
+        Write-Utf8NoBom -Path (Join-Path $fakeRepo "CLAUDE.md") -Content "# Repo notes`n`nDon't touch this."
+
+        $tool = [PSCustomObject]@{ id = "output-guidelines"; type = "instructions"; version = "1.0.0"; path = "instructions/output-guidelines/CONTENT.md" }
+        $userState = @()
+        $repoState = @()
+    }
+
+    AfterAll {
+        Remove-Item -Recurse -Force $fakeSource -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force $fakeRepo -ErrorAction SilentlyContinue
+    }
+
+    It "injects the marked section into the repo's CLAUDE.md, leaving existing content intact" {
+        Install-Tool $tool "repo" ([ref]$userState) $fakeRepo ([ref]$repoState) $fakeSource
+        $content = Get-Content -Raw (Join-Path $fakeRepo "CLAUDE.md")
+        $content | Should -Match "Don't touch this."
+        $content | Should -Match "<!-- ai-framework:output-guidelines:v1.0.0:start -->"
+        $content | Should -Match "Lead with the answer."
+    }
+
+    It "does not write a repo state file for an instructions tool" {
+        Test-Path (Join-Path $fakeRepo ".ai-framework-installed.json") | Should -BeFalse
+    }
+
+    It "Remove-Tool deletes the block and leaves the rest of CLAUDE.md intact" {
+        Remove-Tool $tool "repo" ([ref]$userState) $fakeRepo ([ref]$repoState)
+        $content = Get-Content -Raw (Join-Path $fakeRepo "CLAUDE.md")
+        $content | Should -Match "Don't touch this."
+        $content | Should -Not -Match "ai-framework:output-guidelines"
     }
 }
 

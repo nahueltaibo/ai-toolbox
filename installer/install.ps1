@@ -42,6 +42,68 @@ function Get-UserSkillsRoot { Join-Path $HOME ".claude\skills" }
 function Get-UserStateFile { Join-Path $HOME ".ai-framework-installed.json" }
 function Get-RepoSkillsRoot([string]$RepoRoot) { Join-Path $RepoRoot ".claude\skills" }
 function Get-RepoStateFile([string]$RepoRoot) { Join-Path $RepoRoot ".ai-framework-installed.json" }
+function Get-UserClaudeMdPath { Join-Path $HOME ".claude\CLAUDE.md" }
+function Get-RepoClaudeMdPath([string]$RepoRoot) { Join-Path $RepoRoot "CLAUDE.md" }
+
+# Instructions-type tools live as a marker-delimited block inside CLAUDE.md rather than a standalone
+# file, so multiple entries (and the user's own notes) can share one file. The version rides in the
+# start marker itself - the file is the source of truth, not the separate install-state JSON - so
+# staleness is detectable even if that file was hand-copied or committed without the state file.
+function Get-SectionPattern([string]$Id) {
+    return "(?s)<!-- ai-framework:$([regex]::Escape($Id)):v\S+:start -->.*?<!-- ai-framework:$([regex]::Escape($Id)):end -->"
+}
+
+function Get-SectionVersion([string]$Content, [string]$Id) {
+    if ($Content -match "<!-- ai-framework:$([regex]::Escape($Id)):v(\S+):start -->") { return $Matches[1] }
+    return $null
+}
+
+function New-SectionBlock($Tool, [string]$Body) {
+    $start = "<!-- ai-framework:$($Tool.id):v$($Tool.version):start -->"
+    $end = "<!-- ai-framework:$($Tool.id):end -->"
+    return "$start`n$($Body.Trim())`n$end"
+}
+
+function Set-Section([string]$TargetFile, $Tool, [string]$Body) {
+    $block = New-SectionBlock $Tool $Body
+    $existing = ""
+    if (Test-Path $TargetFile) { $existing = [System.IO.File]::ReadAllText($TargetFile, [System.Text.Encoding]::UTF8) }
+    $pattern = Get-SectionPattern $Tool.id
+    if ($existing -match $pattern) {
+        # Double every '$' first - .NET's string-replacement overload treats '$1' etc. as backreferences,
+        # and the injected body is arbitrary markdown that may contain a literal '$'.
+        $updated = [regex]::Replace($existing, $pattern, $block.Replace('$', '$$'))
+    }
+    elseif ($existing.Trim().Length -gt 0) {
+        $updated = $existing.TrimEnd() + "`n`n" + $block + "`n"
+    }
+    else {
+        $updated = $block + "`n"
+    }
+    Write-Utf8NoBom -Path $TargetFile -Content $updated
+}
+
+function Remove-Section([string]$TargetFile, [string]$Id) {
+    if (-not (Test-Path $TargetFile)) { return }
+    $existing = [System.IO.File]::ReadAllText($TargetFile, [System.Text.Encoding]::UTF8)
+    $pattern = Get-SectionPattern $Id
+    if ($existing -notmatch $pattern) { return }
+    $updated = [regex]::Replace($existing, $pattern, "")
+    $updated = [regex]::Replace($updated, "(\r?\n){3,}", "`n`n").Trim()
+    if ($updated.Length -gt 0) { $updated += "`n" }
+    Write-Utf8NoBom -Path $TargetFile -Content $updated
+}
+
+# For "skill" tools, installed version comes from the tracked install-state JSON. For "instructions"
+# tools it comes straight from the marker in the target CLAUDE.md, which is the actual ground truth.
+function Get-EffectiveInstalledVersion($Tool, $Installs, [string]$TargetFile) {
+    if ($Tool.type -eq "instructions") {
+        if (-not $TargetFile -or -not (Test-Path $TargetFile)) { return $null }
+        $content = [System.IO.File]::ReadAllText($TargetFile, [System.Text.Encoding]::UTF8)
+        return Get-SectionVersion $content $Tool.id
+    }
+    return Get-InstalledVersion $Installs $Tool.id
+}
 
 function Find-RepoRoot([string]$Override = $TargetRepo) {
     if ($Override) { return $Override }
@@ -81,11 +143,10 @@ function Get-InstalledVersion($Installs, [string]$ToolId) {
     return $null
 }
 
-function Format-Status($Installs, $Tool) {
-    $installedVersion = Get-InstalledVersion $Installs $Tool.id
-    if (-not $installedVersion) { return "not installed" }
-    if ($installedVersion -ne $Tool.version) { return "v$installedVersion -> v$($Tool.version)" }
-    return "v$installedVersion"
+function Format-Status([string]$InstalledVersion, $Tool) {
+    if (-not $InstalledVersion) { return "not installed" }
+    if ($InstalledVersion -ne $Tool.version) { return "v$InstalledVersion -> v$($Tool.version)" }
+    return "v$InstalledVersion"
 }
 
 function Get-StatusColor([string]$Status) {
@@ -221,13 +282,17 @@ function Show-Table($Tools, $UserState, $RepoRoot, $RepoState) {
         $t = $Tools[$i]
         $desc = $t.description
         if ($desc.Length -gt $maxDescWidth) { $desc = $desc.Substring(0, $maxDescWidth - 3) + "..." }
+        $userVersion = Get-EffectiveInstalledVersion $t $UserState (Get-UserClaudeMdPath)
         $repoStatus = "-"
-        if ($RepoRoot) { $repoStatus = Format-Status $RepoState $t }
+        if ($RepoRoot) {
+            $repoVersion = Get-EffectiveInstalledVersion $t $RepoState (Get-RepoClaudeMdPath $RepoRoot)
+            $repoStatus = Format-Status $repoVersion $t
+        }
         $rows += [PSCustomObject]@{
             Num         = "$($i + 1)"
             Name        = $t.id
             Description = $desc
-            User        = Format-Status $UserState $t
+            User        = Format-Status $userVersion $t
             Repo        = $repoStatus
         }
     }
@@ -255,7 +320,37 @@ function Show-Table($Tools, $UserState, $RepoRoot, $RepoState) {
     Write-Host ""
 }
 
+function Install-Instructions($Tool, [string]$ScopeName, [string]$RepoRoot, [string]$SourceRoot) {
+    if ($ScopeName -eq "user") {
+        $targetFile = Get-UserClaudeMdPath
+    }
+    else {
+        if (-not $RepoRoot) { Write-Host "  No git repo detected here - skipping repo install for $($Tool.id)" -ForegroundColor Yellow; return }
+        $targetFile = Get-RepoClaudeMdPath $RepoRoot
+    }
+    $body = Get-RemoteOrLocal $Tool.path $SourceRoot
+    Set-Section $targetFile $Tool $body
+    Write-Host "  Installed $($Tool.id) v$($Tool.version) -> $ScopeName ($targetFile)" -ForegroundColor Green
+}
+
+function Remove-Instructions($Tool, [string]$ScopeName, [string]$RepoRoot) {
+    if ($ScopeName -eq "user") {
+        $targetFile = Get-UserClaudeMdPath
+    }
+    else {
+        if (-not $RepoRoot) { return }
+        $targetFile = Get-RepoClaudeMdPath $RepoRoot
+    }
+    Remove-Section $targetFile $Tool.id
+    Write-Host "  Removed $($Tool.id) from $ScopeName" -ForegroundColor Yellow
+}
+
 function Install-Tool($Tool, [string]$ScopeName, [ref]$UserState, [string]$RepoRoot, [ref]$RepoState, [string]$SourceRoot = $Source) {
+    if ($Tool.type -eq "instructions") {
+        Install-Instructions $Tool $ScopeName $RepoRoot $SourceRoot
+        return
+    }
+
     $content = Get-RemoteOrLocal $Tool.path $SourceRoot
 
     if ($ScopeName -eq "user") {
@@ -284,6 +379,11 @@ function Install-Tool($Tool, [string]$ScopeName, [ref]$UserState, [string]$RepoR
 }
 
 function Remove-Tool($Tool, [string]$ScopeName, [ref]$UserState, [string]$RepoRoot, [ref]$RepoState) {
+    if ($Tool.type -eq "instructions") {
+        Remove-Instructions $Tool $ScopeName $RepoRoot
+        return
+    }
+
     if ($ScopeName -eq "user") {
         $targetDir = Join-Path (Get-UserSkillsRoot) $Tool.id
         $stateFile = Get-UserStateFile
@@ -338,9 +438,13 @@ if ($MyInvocation.InvocationName -ne '.') {
 
     $itemLabels = @("All tools")
     foreach ($t in $tools) {
+        $userVersion = Get-EffectiveInstalledVersion $t $userState (Get-UserClaudeMdPath)
         $repoStatus = "-"
-        if ($repoRoot) { $repoStatus = Format-Status $repoState $t }
-        $itemLabels += "{0,-22} User: {1,-20} Repo: {2}" -f $t.id, (Format-Status $userState $t), $repoStatus
+        if ($repoRoot) {
+            $repoVersion = Get-EffectiveInstalledVersion $t $repoState (Get-RepoClaudeMdPath $repoRoot)
+            $repoStatus = Format-Status $repoVersion $t
+        }
+        $itemLabels += "{0,-22} User: {1,-20} Repo: {2}" -f $t.id, (Format-Status $userVersion $t), $repoStatus
     }
 
     $usingArrowUi = Test-ArrowUiSupported
