@@ -1,0 +1,11 @@
+{
+  "tools": [
+    {
+      "id": "markdown-authoring",
+      "type": "skill",
+      "description": "Guidelines for writing .md files",
+      "version": "1.0.0",
+      "path": "skills/markdown-authoring/SKILL.md"
+    }
+  ]
+}
