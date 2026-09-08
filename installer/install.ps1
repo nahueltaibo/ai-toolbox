@@ -111,10 +111,48 @@ function Get-EffectiveInstalledVersion($Tool, $Installs, [string]$TargetFile) {
 
 function Find-RepoRoot([string]$Override = $TargetRepo) {
     if ($Override) { return $Override }
-    $gitOutput = git rev-parse --show-toplevel 2>$null
-    if ($LASTEXITCODE -eq 0 -and $gitOutput) { return ($gitOutput -replace '/', '\') }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return $null }
+    # "not a git repository" is an expected answer here, not a failure - but Windows PowerShell turns
+    # any native stderr into a NativeCommandError, which EAP=Stop would make terminating.
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    try { $gitOutput = git rev-parse --show-toplevel 2>&1 }
+    finally { $ErrorActionPreference = $prev }
+    if ($LASTEXITCODE -eq 0 -and $gitOutput) { return ("$gitOutput" -replace '/', '\') }
     return $null
 }
+
+# Lets the installer target a repo when it wasn't launched from inside one - the normal case for
+# `irm | iex`, which people run from their home directory. Blank input cancels.
+function Read-RepoRootFromUser {
+    while ($true) {
+        $answer = Read-Host "Repo path to install into (blank to cancel)"
+        if (-not $answer) { return $null }
+        $candidate = Resolve-RepoPath $answer
+        if (-not (Test-Path -PathType Container $candidate)) {
+            Write-Host "  Not a directory: $candidate" -ForegroundColor Yellow
+            continue
+        }
+        $resolved = (Resolve-Path -LiteralPath $candidate).Path
+        if (-not (Test-Path (Join-Path $resolved ".git"))) {
+            Write-Host "  Note: $resolved is not a git repo root - installing there anyway." -ForegroundColor Yellow
+        }
+        return $resolved
+    }
+}
+
+# Split out from the prompt so it stays testable without stubbing Read-Host.
+function Resolve-RepoPath([string]$Path) {
+    $trimmed = $Path.Trim().Trim('"').Trim("'")
+    if (-not $trimmed) { return $trimmed }
+    $expanded = [Environment]::ExpandEnvironmentVariables($trimmed)
+    if ($expanded -eq "~") { return $HOME }
+    if ($expanded.StartsWith("~/") -or $expanded.StartsWith("~\")) {
+        return (Join-Path $HOME $expanded.Substring(2))
+    }
+    return $expanded
+}
+
 
 function Read-State([string]$StateFile) {
     # -NoEnumerate is what actually keeps an array intact across the pipeline boundary - the unary
@@ -431,6 +469,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         if (-not $tool) { Write-Error "Unknown tool id: $Id"; return }
         if (-not $Scope) { $Scope = "user" }
         if ($Scope -notin @("user", "repo")) { Write-Error "Invalid -Scope: $Scope (expected 'user' or 'repo')"; return }
+        if ($Scope -eq "repo" -and -not $repoRoot) { Write-Error "No git repo detected here. Pass -TargetRepo <path> to pick one."; return }
         if ($Remove) {
             Remove-Tool $tool $Scope ([ref]$userState) $repoRoot ([ref]$repoState)
         }
@@ -489,13 +528,17 @@ if ($MyInvocation.InvocationName -ne '.') {
         if ($selectedTools.Count -eq 0) { Write-Host "Nothing selected."; return }
 
         $scopesToApply = @("user")
-        if ($repoRoot) {
-            $scopeChoice = Read-Host "Target - [1] User  [2] Repo ($repoRoot)  [3] Both (default: 1)"
-            switch ($scopeChoice.Trim()) {
-                "2" { $scopesToApply = @("repo") }
-                "3" { $scopesToApply = @("user", "repo") }
-                default { $scopesToApply = @("user") }
-            }
+        $repoLabel = if ($repoRoot) { "Repo ($repoRoot)" } else { "Repo (enter a path)" }
+        $scopeChoice = Read-Host "Target - [1] User  [2] $repoLabel  [3] Both (default: 1)"
+        switch ($scopeChoice.Trim()) {
+            "2" { $scopesToApply = @("repo") }
+            "3" { $scopesToApply = @("user", "repo") }
+            default { $scopesToApply = @("user") }
+        }
+        if (($scopesToApply -contains "repo") -and -not $repoRoot) {
+            $repoRoot = Read-RepoRootFromUser
+            if (-not $repoRoot) { Write-Host "Cancelled."; return }
+            $repoState = Read-State (Get-RepoStateFile $repoRoot)
         }
     }
     else {
@@ -523,16 +566,24 @@ if ($MyInvocation.InvocationName -ne '.') {
                     $step = 2
                 }
                 2 {
-                    $scopeItems = @("< Back", "User")
-                    if ($repoRoot) { $scopeItems += "Repo ($repoRoot)"; $scopeItems += "Both" }
+                    $repoLabel = if ($repoRoot) { "Repo ($repoRoot)" } else { "Repo (enter a path)" }
+                    $scopeItems = @("< Back", "User", $repoLabel, "Both")
                     $scopeIdx = Show-SingleSelectMenu $scopeItems "`nTarget:"
                     if ($scopeIdx -le 0) { $step = 1; continue }
 
                     if ($scopeIdx -eq 1) { $scopesToApply = @("user") }
                     elseif ($scopeIdx -eq 2) { $scopesToApply = @("repo") }
                     else { $scopesToApply = @("user", "repo") }
+
+                    if (($scopesToApply -contains "repo") -and -not $repoRoot) {
+                        # Cancelling the path prompt drops back to this menu rather than quitting.
+                        $repoRoot = Read-RepoRootFromUser
+                        if (-not $repoRoot) { continue }
+                        $repoState = Read-State (Get-RepoStateFile $repoRoot)
+                    }
                     $step = 3
                 }
+
             }
         }
     }

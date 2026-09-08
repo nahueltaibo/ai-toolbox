@@ -349,3 +349,46 @@ Describe "Show-CheckboxMenu" {
         Show-CheckboxMenu @("one", "two") "Pick:" | Should -BeNullOrEmpty
     }
 }
+
+Describe "Resolve-RepoPath" {
+    It "strips surrounding whitespace and quotes" {
+        Resolve-RepoPath '  "C:\code\demo"  ' | Should -Be "C:\code\demo"
+    }
+
+    It "expands a bare ~ to the home directory" {
+        Resolve-RepoPath "~" | Should -Be $HOME
+    }
+
+    It "expands a ~-rooted path with either slash style" {
+        Resolve-RepoPath "~/code" | Should -Be (Join-Path $HOME "code")
+        Resolve-RepoPath "~\code" | Should -Be (Join-Path $HOME "code")
+    }
+
+    It "leaves a path whose name merely starts with a tilde alone" {
+        Resolve-RepoPath "~tmp" | Should -Be "~tmp"
+    }
+
+    It "expands environment variables" {
+        Resolve-RepoPath "%TEMP%\demo" | Should -Be (Join-Path $env:TEMP "demo")
+    }
+}
+
+Describe "Read-RepoRootFromUser" {
+    It "returns null when the user enters nothing" {
+        Mock Read-Host { "" }
+        Read-RepoRootFromUser | Should -BeNullOrEmpty
+    }
+
+    It "re-prompts on a path that isn't a directory, then accepts a valid one" {
+        $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("aiframework-target-" + [Guid]::NewGuid())
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        try {
+            $script:answers = @("C:\definitely\not\here", $dir)
+            $script:call = 0
+            Mock Read-Host { $script:call++; return $script:answers[$script:call - 1] }
+            Read-RepoRootFromUser | Should -Be ((Resolve-Path -LiteralPath $dir).Path)
+            $script:call | Should -Be 2
+        }
+        finally { Remove-Item -Recurse -Force $dir }
+    }
+}
