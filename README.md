@@ -8,16 +8,14 @@ Personal AI tooling — skills, agents, instructions, whatever shape a given pie
 irm https://raw.githubusercontent.com/nahueltaibo/ai-toolbox/main/installer/install.ps1 | iex
 ```
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/nahueltaibo/ai-toolbox/main/installer/install.sh | bash
-```
-
-Either command downloads the installer and runs it — no clone, no dependencies beyond PowerShell or `curl`+bash. It shows you a table of what's available, where each one is already installed (and at what version), and lets you pick what to install, update, or remove.
+That downloads the installer and runs it — no clone, nothing to install beyond PowerShell. It shows you a table of what's available, where each one is already installed (and at what version), and lets you pick what to install, update, or remove.
 
 ```text
 #  Name                User            Repo
 1  markdown-authoring  v1.0.0          not installed
 ```
+
+You can install to your user profile, to a repo, or both. If you're not standing in a git repo it asks where to put the repo-level copy, which is the normal case when you run this straight from your home directory.
 
 Run it again any time — it diffs against what's already in place and only touches what changed.
 
