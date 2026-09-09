@@ -10,7 +10,8 @@ param(
     ),
     # Non-interactive: act on a single tool id instead of showing the picker.
     [string]$Id,
-    [ValidateSet("user", "repo")]
+    # No [ValidateSet] here: `irm | iex` runs param() as plain declarations in the caller's scope,
+    # where the empty default would fail the attribute before the script starts. Checked below instead.
     [string]$Scope,
     [switch]$Remove,
     # Print the status table and exit.
@@ -19,6 +20,9 @@ param(
     [string]$TargetRepo
 )
 
+# Saved and restored around the main block below: `irm | iex` runs this in the caller's scope,
+# where leaving Stop behind would make every later error in their session terminating.
+$PrevErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = "Stop"
 $RawBase = "https://raw.githubusercontent.com/nahueltaibo/ai-toolbox/main"
 
@@ -405,7 +409,9 @@ function Remove-Tool($Tool, [string]$ScopeName, [ref]$UserState, [string]$RepoRo
 # --- main ---
 # Skipped when dot-sourced (Pester loads the functions above this way) so tests never trigger a
 # network fetch, a git call, or an interactive prompt just by importing the script.
+# `return`, never `exit`: under `irm | iex` an exit would close the user's whole shell.
 if ($MyInvocation.InvocationName -ne '.') {
+  try {
 
     $registry = Get-RemoteOrLocal "registry.json" | ConvertFrom-Json
     $tools = @($registry.tools)
@@ -417,20 +423,21 @@ if ($MyInvocation.InvocationName -ne '.') {
 
     if ($List) {
         Show-Table $tools $userState $repoRoot $repoState
-        exit 0
+        return
     }
 
     if ($Id) {
         $tool = $tools | Where-Object { $_.id -eq $Id }
-        if (-not $tool) { Write-Error "Unknown tool id: $Id"; exit 1 }
+        if (-not $tool) { Write-Error "Unknown tool id: $Id"; return }
         if (-not $Scope) { $Scope = "user" }
+        if ($Scope -notin @("user", "repo")) { Write-Error "Invalid -Scope: $Scope (expected 'user' or 'repo')"; return }
         if ($Remove) {
             Remove-Tool $tool $Scope ([ref]$userState) $repoRoot ([ref]$repoState)
         }
         else {
             Install-Tool $tool $Scope ([ref]$userState) $repoRoot ([ref]$repoState)
         }
-        exit 0
+        return
     }
 
     Write-Host "ai-toolbox installer" -ForegroundColor Cyan
@@ -452,7 +459,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     if (-not $usingArrowUi) {
         # No usable console for arrow-key input (e.g. redirected stdin) - fall back to plain text entry.
         $selection = Read-Host "`nTool number(s) to install/update (comma-separated), 'a' for all, 'r <numbers|a>' to remove, or Enter to quit"
-        if ([string]::IsNullOrWhiteSpace($selection)) { exit 0 }
+        if ([string]::IsNullOrWhiteSpace($selection)) { return }
 
         $isRemove = $false
         if ($selection.Trim() -like 'r *') {
@@ -479,7 +486,7 @@ if ($MyInvocation.InvocationName -ne '.') {
             }
         }
 
-        if ($selectedTools.Count -eq 0) { Write-Host "Nothing selected."; exit 0 }
+        if ($selectedTools.Count -eq 0) { Write-Host "Nothing selected."; return }
 
         $scopesToApply = @("user")
         if ($repoRoot) {
@@ -499,7 +506,7 @@ if ($MyInvocation.InvocationName -ne '.') {
             switch ($step) {
                 0 {
                     $chosenIndices = Show-CheckboxMenu $itemLabels "`nSelect tool(s):"
-                    if ($chosenIndices.Count -eq 0) { Write-Host "Cancelled."; exit 0 }
+                    if ($chosenIndices.Count -eq 0) { Write-Host "Cancelled."; return }
                     if ($chosenIndices -contains 0) {
                         $selectedTools = $tools
                     }
@@ -536,7 +543,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     Write-Host ""
     Write-Host "$actionWord [$toolNames] -> $scopeWord" -ForegroundColor Cyan
     $confirm = Read-Host "Proceed? (y/N)"
-    if ($confirm.Trim().ToLower() -ne "y") { Write-Host "Cancelled."; exit 0 }
+    if ($confirm.Trim().ToLower() -ne "y") { Write-Host "Cancelled."; return }
 
     foreach ($tool in $selectedTools) {
         foreach ($scopeName in $scopesToApply) {
@@ -551,4 +558,6 @@ if ($MyInvocation.InvocationName -ne '.') {
 
     Write-Host "`nDone." -ForegroundColor Cyan
     Show-Table $tools $userState $repoRoot $repoState
+  }
+  finally { $ErrorActionPreference = $PrevErrorActionPreference }
 }
