@@ -14,7 +14,7 @@ test("setSection writes a fresh block when the file doesn't exist", () => {
   const target = tmpFile();
   setSection(target, { id: "foo", version: "1.0.0" }, "Body text.");
   const content = fs.readFileSync(target, "utf8");
-  assert.match(content, /<!-- ai-framework:foo:v1\.0\.0:start -->\nBody text\.\n<!-- ai-framework:foo:end -->\n/);
+  assert.match(content, /<!-- ai-toolbox:foo:v1\.0\.0:start -->\nBody text\.\n<!-- ai-toolbox:foo:end -->\n/);
 });
 
 test("setSection appends to existing hand-written content", () => {
@@ -22,31 +22,31 @@ test("setSection appends to existing hand-written content", () => {
   fs.writeFileSync(target, "# My notes\n\nSome hand-written content.\n", "utf8");
   setSection(target, { id: "foo", version: "1.0.0" }, "Body text.");
   const content = fs.readFileSync(target, "utf8");
-  assert.match(content, /^# My notes\n\nSome hand-written content\.\n\n<!-- ai-framework:foo/);
+  assert.match(content, /^# My notes\n\nSome hand-written content\.\n\n<!-- ai-toolbox:foo/);
 });
 
 test("setSection replaces an existing block in place, leaving surrounding content intact", () => {
   const target = tmpFile();
   fs.writeFileSync(
     target,
-    "before\n\n<!-- ai-framework:foo:v1.0.0:start -->\nold body\n<!-- ai-framework:foo:end -->\n\nafter\n",
+    "before\n\n<!-- ai-toolbox:foo:v1.0.0:start -->\nold body\n<!-- ai-toolbox:foo:end -->\n\nafter\n",
     "utf8",
   );
   setSection(target, { id: "foo", version: "2.0.0" }, "new body");
   const content = fs.readFileSync(target, "utf8");
-  assert.match(content, /^before\n\n<!-- ai-framework:foo:v2\.0\.0:start -->\nnew body\n<!-- ai-framework:foo:end -->\n\nafter\n/);
+  assert.match(content, /^before\n\n<!-- ai-toolbox:foo:v2\.0\.0:start -->\nnew body\n<!-- ai-toolbox:foo:end -->\n\nafter\n/);
 });
 
 test("setSection treats a literal '$' in the injected body as a literal string, not a regex backreference", () => {
   const target = tmpFile();
-  fs.writeFileSync(target, "<!-- ai-framework:foo:v1.0.0:start -->\nold\n<!-- ai-framework:foo:end -->\n", "utf8");
+  fs.writeFileSync(target, "<!-- ai-toolbox:foo:v1.0.0:start -->\nold\n<!-- ai-toolbox:foo:end -->\n", "utf8");
   setSection(target, { id: "foo", version: "2.0.0" }, "costs $1 not a backreference");
   const content = fs.readFileSync(target, "utf8");
   assert.match(content, /costs \$1 not a backreference/);
 });
 
 test("getSectionVersion reads the version out of the start marker", () => {
-  const content = "<!-- ai-framework:foo:v1.2.3:start -->\nbody\n<!-- ai-framework:foo:end -->\n";
+  const content = "<!-- ai-toolbox:foo:v1.2.3:start -->\nbody\n<!-- ai-toolbox:foo:end -->\n";
   assert.equal(getSectionVersion(content, "foo"), "1.2.3");
 });
 
@@ -58,7 +58,7 @@ test("removeSection deletes the block and leaves the rest of the file intact", (
   const target = tmpFile();
   fs.writeFileSync(
     target,
-    "before\n\n<!-- ai-framework:foo:v1.0.0:start -->\nbody\n<!-- ai-framework:foo:end -->\n\nafter\n",
+    "before\n\n<!-- ai-toolbox:foo:v1.0.0:start -->\nbody\n<!-- ai-toolbox:foo:end -->\n\nafter\n",
     "utf8",
   );
   removeSection(target, "foo");

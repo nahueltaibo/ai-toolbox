@@ -74,12 +74,12 @@ Each install location keeps a small `ai-toolbox-installed.json` file (inside `.c
 Instructions are just markdown, but they land inside `CLAUDE.md` instead of getting their own file — Copilot reads `CLAUDE.md` too, so one file still covers both tools. The installer wraps the content in a marker comment carrying the version, and only ever touches what's between its own markers:
 
 ```text
-<!-- ai-framework:output-guidelines:v1.0.0:start -->
+<!-- ai-toolbox:output-guidelines:v1.0.0:start -->
 ...content...
-<!-- ai-framework:output-guidelines:end -->
+<!-- ai-toolbox:output-guidelines:end -->
 ```
 
-That marker is the source of truth for the installed version — not the `.ai-framework-installed.json` state file — so the status table stays accurate even if `CLAUDE.md` was hand-copied or committed on its own. Installing again after a version bump replaces the block in place; removing deletes it and leaves the rest of the file exactly as it was.
+That marker is the source of truth for the installed version — not the `ai-toolbox-installed.json` state file — so the status table stays accurate even if `CLAUDE.md` was hand-copied or committed on its own. Installing again after a version bump replaces the block in place; removing deletes it and leaves the rest of the file exactly as it was.
 
 - **User-level**: `~/.claude/CLAUDE.md`
 - **Repo-level**: `<repo>/CLAUDE.md`

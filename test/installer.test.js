@@ -103,7 +103,7 @@ test("installs instructions by merging into CLAUDE.md, without writing a state f
     const result = await installTool(instructionsTool, "user", ctx);
     assert.equal(result.targetFile, userClaudeMdPath());
     const content = fs.readFileSync(userClaudeMdPath(), "utf8");
-    assert.match(content, /<!-- ai-framework:demo-instructions:v1\.0\.0:start -->/);
+    assert.match(content, /<!-- ai-toolbox:demo-instructions:v1\.0\.0:start -->/);
     assert.ok(!fs.existsSync(userStateFile()));
   });
   fs.rmSync(source, { recursive: true, force: true });

@@ -48,7 +48,7 @@ test("getEffectiveInstalledVersion reads an instructions tool's version from the
   const target = path.join(dir, "CLAUDE.md");
   fs.writeFileSync(
     target,
-    "<!-- ai-framework:foo:v3.0.0:start -->\nbody\n<!-- ai-framework:foo:end -->\n",
+    "<!-- ai-toolbox:foo:v3.0.0:start -->\nbody\n<!-- ai-toolbox:foo:end -->\n",
     "utf8",
   );
   const tool = { id: "foo", type: "instructions" };

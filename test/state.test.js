@@ -7,11 +7,11 @@ import { readState, saveState } from "../src/state.js";
 
 function tmpFile() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-state-"));
-  return path.join(dir, ".ai-framework-installed.json");
+  return path.join(dir, "ai-toolbox-installed.json");
 }
 
 test("readState returns an empty array when the file doesn't exist", () => {
-  assert.deepEqual(readState("/nonexistent/.ai-framework-installed.json"), []);
+  assert.deepEqual(readState("/nonexistent/ai-toolbox-installed.json"), []);
 });
 
 test("writes and reads back installed entries", () => {
@@ -31,7 +31,7 @@ test("deletes the state file instead of writing an empty installs array", () => 
 
 test("saveState creates the parent directory if it doesn't exist yet", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-state-"));
-  const file = path.join(dir, "nested", ".ai-framework-installed.json");
+  const file = path.join(dir, "nested", "ai-toolbox-installed.json");
   saveState(file, [{ id: "foo", version: "1.0.0", scope: "user", installedAt: "2026-01-01" }]);
   assert.ok(fs.existsSync(file));
 });

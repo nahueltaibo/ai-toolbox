@@ -8,17 +8,17 @@ import path from "node:path";
 export function sectionPattern(id) {
   const escaped = escapeRegExp(id);
   // Global flag matches .NET's [regex]::Replace, which replaces every match, not just the first.
-  return new RegExp(`<!-- ai-framework:${escaped}:v\\S+:start -->[\\s\\S]*?<!-- ai-framework:${escaped}:end -->`, "g");
+  return new RegExp(`<!-- ai-toolbox:${escaped}:v\\S+:start -->[\\s\\S]*?<!-- ai-toolbox:${escaped}:end -->`, "g");
 }
 
 export function getSectionVersion(content, id) {
-  const match = content.match(new RegExp(`<!-- ai-framework:${escapeRegExp(id)}:v(\\S+):start -->`));
+  const match = content.match(new RegExp(`<!-- ai-toolbox:${escapeRegExp(id)}:v(\\S+):start -->`));
   return match ? match[1] : null;
 }
 
 export function buildSectionBlock(tool, body) {
-  const start = `<!-- ai-framework:${tool.id}:v${tool.version}:start -->`;
-  const end = `<!-- ai-framework:${tool.id}:end -->`;
+  const start = `<!-- ai-toolbox:${tool.id}:v${tool.version}:start -->`;
+  const end = `<!-- ai-toolbox:${tool.id}:end -->`;
   return `${start}\n${body.trim()}\n${end}`;
 }
 

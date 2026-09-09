@@ -90,7 +90,7 @@ test("install merges an instructions tool into CLAUDE.md", async () => {
 
   await buildProgram().parseAsync(["node", "ai-toolbox", "--source", source, "install", "demo-instructions"]);
   const content = fs.readFileSync(userClaudeMdPath(), "utf8");
-  assert.match(content, /<!-- ai-framework:demo-instructions:v1\.0\.0:start -->/);
+  assert.match(content, /<!-- ai-toolbox:demo-instructions:v1\.0\.0:start -->/);
 
   fs.rmSync(source, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });
