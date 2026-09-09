@@ -16,14 +16,14 @@ test("readState returns an empty array when the file doesn't exist", () => {
 
 test("writes and reads back installed entries", () => {
   const file = tmpFile();
-  const installs = [{ id: "foo", version: "1.0.0", scope: "user", installedAt: "2026-01-01" }];
+  const installs = [{ id: "foo", version: "1.0.0", scope: "user" }];
   saveState(file, installs);
   assert.deepEqual(readState(file), installs);
 });
 
 test("deletes the state file instead of writing an empty installs array", () => {
   const file = tmpFile();
-  saveState(file, [{ id: "foo", version: "1.0.0", scope: "user", installedAt: "2026-01-01" }]);
+  saveState(file, [{ id: "foo", version: "1.0.0", scope: "user" }]);
   assert.ok(fs.existsSync(file));
   saveState(file, []);
   assert.ok(!fs.existsSync(file));
@@ -32,6 +32,6 @@ test("deletes the state file instead of writing an empty installs array", () => 
 test("saveState creates the parent directory if it doesn't exist yet", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-state-"));
   const file = path.join(dir, "nested", "ai-toolbox-installed.json");
-  saveState(file, [{ id: "foo", version: "1.0.0", scope: "user", installedAt: "2026-01-01" }]);
+  saveState(file, [{ id: "foo", version: "1.0.0", scope: "user" }]);
   assert.ok(fs.existsSync(file));
 });

@@ -28,12 +28,7 @@ export async function installTool(tool, scopeName, { repoRoot, sourceRoot, userS
   fs.writeFileSync(targetFile, content, "utf8");
 
   const installs = scope.installs.filter((i) => i.id !== tool.id);
-  installs.push({
-    id: tool.id,
-    version: tool.version,
-    scope: scopeName,
-    installedAt: new Date().toISOString().slice(0, 10),
-  });
+  installs.push({ id: tool.id, version: tool.version, scope: scopeName });
   saveState(scope.stateFile, installs);
 
   return { targetFile, installs };
