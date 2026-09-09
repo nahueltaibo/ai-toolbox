@@ -23,7 +23,7 @@ export function repoClaudeMdPath(repoRoot) {
 export function targetFileFor(tool, scopeName, repoRoot) {
   if (scopeName === "repo" && !repoRoot) return null;
 
-  if (tool.type === "instructions") {
+  if (tool.type === "rules") {
     return scopeName === "user" ? userClaudeMdPath() : repoClaudeMdPath(repoRoot);
   }
   const skillsRoot = scopeName === "user" ? userSkillsRoot() : repoSkillsRoot(repoRoot);

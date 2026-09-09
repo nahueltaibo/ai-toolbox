@@ -47,18 +47,18 @@ test("getEffectiveInstalledVersion returns null for a skill with no frontmatter 
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test("getEffectiveInstalledVersion reads an instructions tool's version from the CLAUDE.md marker", () => {
+test("getEffectiveInstalledVersion reads a rules tool's version from the CLAUDE.md marker", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-status-"));
   const target = path.join(dir, "CLAUDE.md");
   fs.writeFileSync(target, "<!-- ai-toolbox:foo:v3.0.0:start -->\nbody\n<!-- ai-toolbox:foo:end -->\n", "utf8");
-  const tool = { id: "foo", type: "instructions" };
+  const tool = { id: "foo", type: "rules" };
   assert.equal(getEffectiveInstalledVersion(tool, target), "3.0.0");
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test("getEffectiveInstalledVersion returns null when the target file doesn't exist", () => {
   assert.equal(getEffectiveInstalledVersion({ id: "foo", type: "skill" }, "/nonexistent/SKILL.md"), null);
-  assert.equal(getEffectiveInstalledVersion({ id: "foo", type: "instructions" }, "/nonexistent/CLAUDE.md"), null);
+  assert.equal(getEffectiveInstalledVersion({ id: "foo", type: "rules" }, "/nonexistent/CLAUDE.md"), null);
 });
 
 test("getEffectiveInstalledVersion returns null when no target file is known (e.g. no repo)", () => {

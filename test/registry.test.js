@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fetchText, fetchRegistry } from "../src/registry.js";
+import { fetchText, fetchRegistry, resolveRegistryBase } from "../src/registry.js";
 
 test("fetchText reads a file relative to sourceRoot", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-fixture-"));
@@ -28,4 +28,23 @@ test("fetchRegistry reads and parses registry.json from a local source", async (
   const tools = await fetchRegistry(dir);
   assert.deepEqual(tools, [{ id: "foo", type: "skill", version: "1.0.0", description: "d", path: "x" }]);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("resolveRegistryBase defaults to nahueltaibo/ai-toolbox@main", () => {
+  assert.equal(resolveRegistryBase(undefined), "https://raw.githubusercontent.com/nahueltaibo/ai-toolbox/main");
+});
+
+test("resolveRegistryBase accepts owner/repo and defaults branch to main", () => {
+  assert.equal(resolveRegistryBase("acme/tools"), "https://raw.githubusercontent.com/acme/tools/main");
+});
+
+test("resolveRegistryBase accepts an explicit @branch", () => {
+  assert.equal(
+    resolveRegistryBase("acme/tools@release"),
+    "https://raw.githubusercontent.com/acme/tools/release",
+  );
+});
+
+test("resolveRegistryBase rejects a spec without owner/repo", () => {
+  assert.throws(() => resolveRegistryBase("not-a-repo"), /Invalid --registry/);
 });

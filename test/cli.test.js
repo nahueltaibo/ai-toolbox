@@ -6,6 +6,7 @@ import path from "node:path";
 import { buildProgram } from "../src/cli.js";
 import { getFrontmatterVersion } from "../src/skillFrontmatter.js";
 import { userSkillsRoot, userClaudeMdPath } from "../src/paths.js";
+import { listRegistries } from "../src/config.js";
 
 function makeSourceRoot() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-source-"));
@@ -15,11 +16,11 @@ function makeSourceRoot() {
       tools: [
         { id: "demo-tool", type: "skill", version: "1.0.0", description: "Demo", path: "skills/demo-tool/SKILL.md" },
         {
-          id: "demo-instructions",
-          type: "instructions",
+          id: "demo-rules",
+          type: "rules",
           version: "1.0.0",
           description: "Demo rules",
-          path: "instructions/demo-instructions/CONTENT.md",
+          path: "rules/demo-rules/CONTENT.md",
         },
       ],
     }),
@@ -27,8 +28,8 @@ function makeSourceRoot() {
   );
   fs.mkdirSync(path.join(dir, "skills", "demo-tool"), { recursive: true });
   fs.writeFileSync(path.join(dir, "skills", "demo-tool", "SKILL.md"), "---\nname: demo-tool\ndescription: Demo\n---\n# Demo\n", "utf8");
-  fs.mkdirSync(path.join(dir, "instructions", "demo-instructions"), { recursive: true });
-  fs.writeFileSync(path.join(dir, "instructions", "demo-instructions", "CONTENT.md"), "# Demo rules\n", "utf8");
+  fs.mkdirSync(path.join(dir, "rules", "demo-rules"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "rules", "demo-rules", "CONTENT.md"), "# Demo rules\n", "utf8");
   return dir;
 }
 
@@ -87,14 +88,14 @@ test("update with no ids reinstalls only outdated installed tools", async () => 
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-test("install merges an instructions tool into CLAUDE.md", async () => {
+test("install merges a rules tool into CLAUDE.md", async () => {
   const source = makeSourceRoot();
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
   withHome(home);
 
-  await buildProgram().parseAsync(["node", "ai-toolbox", "--source", source, "install", "demo-instructions"]);
+  await buildProgram().parseAsync(["node", "ai-toolbox", "--source", source, "install", "demo-rules"]);
   const content = fs.readFileSync(userClaudeMdPath(), "utf8");
-  assert.match(content, /<!-- ai-toolbox:demo-instructions:v1\.0\.0:start -->/);
+  assert.match(content, /<!-- ai-toolbox:demo-rules:v1\.0\.0:start -->/);
 
   fs.rmSync(source, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });
@@ -108,5 +109,50 @@ test("list prints without throwing", async () => {
   await buildProgram().parseAsync(["node", "ai-toolbox", "--source", source, "list"]);
 
   fs.rmSync(source, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("registry add saves a named registry that registry list then shows", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "acme", "acme/tools@release"]);
+  assert.deepEqual(listRegistries(), { acme: "acme/tools@release" });
+
+  await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "list"]);
+
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("registry add rejects a malformed spec without saving it", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "acme", "not-a-repo"]);
+  assert.deepEqual(listRegistries(), {});
+  process.exitCode = 0; // the CLI action sets this for a real process exit; undo so it doesn't leak to the test runner
+
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("registry add rejects the reserved name \"default\"", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "default", "acme/tools"]);
+  assert.deepEqual(listRegistries(), {});
+  process.exitCode = 0; // the CLI action sets this for a real process exit; undo so it doesn't leak to the test runner
+
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("registry remove deletes a saved registry", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "acme", "acme/tools"]);
+  await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "remove", "acme"]);
+  assert.deepEqual(listRegistries(), {});
+
   fs.rmSync(home, { recursive: true, force: true });
 });

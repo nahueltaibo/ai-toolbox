@@ -22,14 +22,14 @@ test("targetFileFor points a skill at its SKILL.md, user or repo scope", () => {
   assert.equal(targetFileFor(skill, "repo", repoRoot), path.join(repoSkillsRoot(repoRoot), "demo", "SKILL.md"));
 });
 
-test("targetFileFor points instructions at CLAUDE.md, user or repo scope", () => {
-  const instructions = { id: "demo", type: "instructions" };
-  assert.equal(targetFileFor(instructions, "user", null), userClaudeMdPath());
+test("targetFileFor points rules at CLAUDE.md, user or repo scope", () => {
+  const rules = { id: "demo", type: "rules" };
+  assert.equal(targetFileFor(rules, "user", null), userClaudeMdPath());
   const repoRoot = path.join("C:", "code", "some-repo");
-  assert.equal(targetFileFor(instructions, "repo", repoRoot), repoClaudeMdPath(repoRoot));
+  assert.equal(targetFileFor(rules, "repo", repoRoot), repoClaudeMdPath(repoRoot));
 });
 
 test("targetFileFor returns null for repo scope when there's no repo root", () => {
   assert.equal(targetFileFor({ id: "demo", type: "skill" }, "repo", null), null);
-  assert.equal(targetFileFor({ id: "demo", type: "instructions" }, "repo", null), null);
+  assert.equal(targetFileFor({ id: "demo", type: "rules" }, "repo", null), null);
 });

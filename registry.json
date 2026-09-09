@@ -9,10 +9,10 @@
     },
     {
       "id": "output-guidelines",
-      "type": "instructions",
+      "type": "rules",
       "description": "Writing rules for responses, comments, docs, and commits",
       "version": "1.0.2",
-      "path": "instructions/output-guidelines/CONTENT.md"
+      "path": "rules/output-guidelines/CONTENT.md"
     }
   ]
 }

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-// Instructions-type tools live as a marker-delimited block inside CLAUDE.md rather than a standalone
+// Rules-type tools live as a marker-delimited block inside CLAUDE.md rather than a standalone
 // file, so multiple entries (and the user's own notes) can share one file. The version rides in the
 // start marker itself - the file is the source of truth, not the separate install-state JSON - so
 // staleness is detectable even if that file was hand-copied or committed without the state file.

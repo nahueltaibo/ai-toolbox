@@ -26,17 +26,17 @@ function makeSourceRoot() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-source-"));
   fs.mkdirSync(path.join(dir, "skills", "demo-tool"), { recursive: true });
   fs.writeFileSync(path.join(dir, "skills", "demo-tool", "SKILL.md"), "---\nname: demo-tool\ndescription: Demo\n---\n# Demo skill\n", "utf8");
-  fs.mkdirSync(path.join(dir, "instructions", "demo-instructions"), { recursive: true });
-  fs.writeFileSync(path.join(dir, "instructions", "demo-instructions", "CONTENT.md"), "# Demo rules\n", "utf8");
+  fs.mkdirSync(path.join(dir, "rules", "demo-rules"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "rules", "demo-rules", "CONTENT.md"), "# Demo rules\n", "utf8");
   return dir;
 }
 
 const skillTool = { id: "demo-tool", type: "skill", version: "1.0.0", path: "skills/demo-tool/SKILL.md" };
-const instructionsTool = {
-  id: "demo-instructions",
-  type: "instructions",
+const rulesTool = {
+  id: "demo-rules",
+  type: "rules",
   version: "1.0.0",
-  path: "instructions/demo-instructions/CONTENT.md",
+  path: "rules/demo-rules/CONTENT.md",
 };
 
 test("installs a skill to user scope, stamping its version into the frontmatter", async () => {
@@ -92,43 +92,43 @@ test("removeTool deletes the installed skill folder", async () => {
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-test("installs instructions by merging into CLAUDE.md", async () => {
+test("installs rules by merging into CLAUDE.md", async () => {
   const source = makeSourceRoot();
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
   await withHome(home, async () => {
     const ctx = { repoRoot: null, sourceRoot: source };
-    const result = await installTool(instructionsTool, "user", ctx);
+    const result = await installTool(rulesTool, "user", ctx);
     assert.equal(result.targetFile, userClaudeMdPath());
     const content = fs.readFileSync(userClaudeMdPath(), "utf8");
-    assert.match(content, /<!-- ai-toolbox:demo-instructions:v1\.0\.0:start -->/);
+    assert.match(content, /<!-- ai-toolbox:demo-rules:v1\.0\.0:start -->/);
   });
   fs.rmSync(source, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-test("removeTool removes the instructions block and leaves the rest of CLAUDE.md intact", async () => {
+test("removeTool removes the rules block and leaves the rest of CLAUDE.md intact", async () => {
   const source = makeSourceRoot();
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
   await withHome(home, async () => {
     fs.mkdirSync(path.join(home, ".claude"), { recursive: true });
     fs.writeFileSync(userClaudeMdPath(), "hand-written\n", "utf8");
     const ctx = { repoRoot: null, sourceRoot: source };
-    await installTool(instructionsTool, "user", ctx);
-    removeTool(instructionsTool, "user", ctx);
+    await installTool(rulesTool, "user", ctx);
+    removeTool(rulesTool, "user", ctx);
     assert.equal(fs.readFileSync(userClaudeMdPath(), "utf8"), "hand-written\n");
   });
   fs.rmSync(source, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-test("repo-scope instructions install/remove target <repo>/CLAUDE.md", async () => {
+test("repo-scope rules install/remove target <repo>/CLAUDE.md", async () => {
   const source = makeSourceRoot();
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-repo-"));
   const ctx = { repoRoot: repo, sourceRoot: source };
-  await installTool(instructionsTool, "repo", ctx);
-  assert.match(fs.readFileSync(repoClaudeMdPath(repo), "utf8"), /demo-instructions/);
-  removeTool(instructionsTool, "repo", ctx);
-  assert.doesNotMatch(fs.readFileSync(repoClaudeMdPath(repo), "utf8"), /demo-instructions/);
+  await installTool(rulesTool, "repo", ctx);
+  assert.match(fs.readFileSync(repoClaudeMdPath(repo), "utf8"), /demo-rules/);
+  removeTool(rulesTool, "repo", ctx);
+  assert.doesNotMatch(fs.readFileSync(repoClaudeMdPath(repo), "utf8"), /demo-rules/);
   fs.rmSync(source, { recursive: true, force: true });
   fs.rmSync(repo, { recursive: true, force: true });
 });
