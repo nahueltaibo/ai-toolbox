@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "bin": {
-    "ai-toolbox": "./bin/ai-toolbox.js"
+    "ai-toolbox": "bin/ai-toolbox.js"
   },
   "engines": {
     "node": ">=20"
@@ -18,11 +18,12 @@
     "access": "public"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "prepublishOnly": "npm test"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nahueltaibo/ai-toolbox.git"
+    "url": "git+https://github.com/nahueltaibo/ai-toolbox.git"
   },
   "dependencies": {
     "@inquirer/prompts": "^7.2.0",
