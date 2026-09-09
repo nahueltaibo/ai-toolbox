@@ -1,6 +1,6 @@
 {
   "name": "@nahueltaibo/ai-toolbox",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Install personal AI tooling (skills, instructions) from the ai-toolbox registry into Claude Code / GitHub Copilot",
   "type": "module",
   "license": "MIT",
