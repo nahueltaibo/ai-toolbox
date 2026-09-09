@@ -4,8 +4,6 @@ import { renderTable } from "./table.js";
 import { promptForRepoRoot } from "./repoPrompt.js";
 import { expandScope } from "./scope.js";
 import { installTool, removeTool } from "./installer.js";
-import { readState } from "./state.js";
-import { repoStateFile } from "./paths.js";
 
 const ALL_TOOLS = "__all__";
 
@@ -22,7 +20,7 @@ export function buildToolChoices(tools) {
 // `deps` defaults to the real @inquirer/prompts functions; tests inject canned resolvers instead,
 // the direct equivalent of the PS wizard's tests stubbing Read-Host.
 export async function runInteractive(ctx, deps = { checkbox, select, confirm, promptForRepoRoot }) {
-  console.log(renderTable(ctx.tools, ctx.userState, ctx.repoRoot, ctx.repoState));
+  console.log(renderTable(ctx.tools, ctx.repoRoot));
 
   const selectedValues = await deps.checkbox({
     message: "Select tool(s):",
@@ -53,7 +51,6 @@ export async function runInteractive(ctx, deps = { checkbox, select, confirm, pr
       console.log("Cancelled.");
       return;
     }
-    ctx.repoState = readState(repoStateFile(ctx.repoRoot));
   }
 
   const toolNames = selectedTools.map((t) => t.id).join(", ");
@@ -73,18 +70,10 @@ export async function runInteractive(ctx, deps = { checkbox, select, confirm, pr
     }
     for (const tool of selectedTools) {
       if (action === "remove") {
-        const result = removeTool(tool, scopeName, ctx);
-        if (result.installs) {
-          if (scopeName === "user") ctx.userState = result.installs;
-          else ctx.repoState = result.installs;
-        }
+        removeTool(tool, scopeName, ctx);
         console.log(pc.yellow(`  Removed ${tool.id} from ${scopeName}`));
       } else {
-        const result = await installTool(tool, scopeName, ctx);
-        if (result.installs) {
-          if (scopeName === "user") ctx.userState = result.installs;
-          else ctx.repoState = result.installs;
-        }
+        await installTool(tool, scopeName, ctx);
         console.log(pc.green(`  Installed ${tool.id} v${tool.version} -> ${scopeName}`));
       }
     }
@@ -92,5 +81,5 @@ export async function runInteractive(ctx, deps = { checkbox, select, confirm, pr
 
   console.log("");
   console.log(pc.cyan("Done."));
-  console.log(renderTable(ctx.tools, ctx.userState, ctx.repoRoot, ctx.repoState));
+  console.log(renderTable(ctx.tools, ctx.repoRoot));
 }

@@ -4,8 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { resolveToolSelection, buildToolChoices, runInteractive } from "../src/interactive.js";
-import { readState } from "../src/state.js";
-import { userStateFile } from "../src/paths.js";
+import { getFrontmatterVersion } from "../src/skillFrontmatter.js";
+import { userSkillsRoot } from "../src/paths.js";
 
 const tools = [
   { id: "a", type: "skill", version: "1.0.0", description: "Tool A", path: "skills/a/SKILL.md" },
@@ -29,13 +29,13 @@ test("buildToolChoices puts 'All tools' first and describes each tool", () => {
 function makeSourceRoot() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-source-"));
   fs.mkdirSync(path.join(dir, "skills", "demo-tool"), { recursive: true });
-  fs.writeFileSync(path.join(dir, "skills", "demo-tool", "SKILL.md"), "# Demo\n", "utf8");
+  fs.writeFileSync(path.join(dir, "skills", "demo-tool", "SKILL.md"), "---\nname: demo-tool\ndescription: Demo\n---\n# Demo\n", "utf8");
   return dir;
 }
 
 test("runInteractive cancels cleanly when nothing is selected", async () => {
   const source = makeSourceRoot();
-  const ctx = { tools: [], repoRoot: null, sourceRoot: source, userState: [], repoState: [] };
+  const ctx = { tools: [], repoRoot: null, sourceRoot: source };
   const deps = { checkbox: async () => [], select: async () => assert.fail("should not be called"), confirm: async () => false, promptForRepoRoot: async () => null };
   await runInteractive(ctx, deps);
   fs.rmSync(source, { recursive: true, force: true });
@@ -50,7 +50,7 @@ test("runInteractive installs the selected tool end-to-end when confirmed", asyn
   process.env.USERPROFILE = home;
 
   const demoTool = { id: "demo-tool", type: "skill", version: "1.0.0", description: "Demo", path: "skills/demo-tool/SKILL.md" };
-  const ctx = { tools: [demoTool], repoRoot: null, sourceRoot: source, userState: [], repoState: [] };
+  const ctx = { tools: [demoTool], repoRoot: null, sourceRoot: source };
   const selects = ["install", "user"];
   let selectCall = 0;
   const deps = {
@@ -60,7 +60,8 @@ test("runInteractive installs the selected tool end-to-end when confirmed", asyn
     promptForRepoRoot: async () => null,
   };
   await runInteractive(ctx, deps);
-  assert.deepEqual(readState(userStateFile()).map((i) => i.id), ["demo-tool"]);
+  const installed = fs.readFileSync(path.join(userSkillsRoot(), "demo-tool", "SKILL.md"), "utf8");
+  assert.equal(getFrontmatterVersion(installed), "1.0.0");
 
   process.env.HOME = prevHome;
   process.env.USERPROFILE = prevUserProfile;
@@ -71,7 +72,7 @@ test("runInteractive installs the selected tool end-to-end when confirmed", asyn
 test("runInteractive prompts for a repo path when scope is repo and none was detected, then cancels if blank", async () => {
   const source = makeSourceRoot();
   const demoTool = { id: "demo-tool", type: "skill", version: "1.0.0", description: "Demo", path: "skills/demo-tool/SKILL.md" };
-  const ctx = { tools: [demoTool], repoRoot: null, sourceRoot: source, userState: [], repoState: [] };
+  const ctx = { tools: [demoTool], repoRoot: null, sourceRoot: source };
   const selects = ["install", "repo"];
   let selectCall = 0;
   let promptCalled = false;

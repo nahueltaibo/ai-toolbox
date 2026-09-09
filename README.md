@@ -67,7 +67,7 @@ flowchart TD
 
 GitHub Copilot CLI's own personal folder is `~/.copilot/skills/` rather than `~/.claude/skills/` — copy the same file there too if you use the CLI and want it picked up without a repo checkout.
 
-Each install location keeps a small `ai-toolbox-installed.json` file (inside `.claude/`, next to `skills/`) recording what's there and at what version — that's what powers the status column in the table. The repo-level one gets committed, so anyone cloning a repo you've set this up in sees the same state.
+The installed version lives in the skill itself, under a `metadata.ai-toolbox-version` key in its frontmatter. Claude Code ignores that key; the CLI reads it back to power the status column. Committing the installed `SKILL.md` is what makes a repo-level install visible to anyone who clones the repo.
 
 ## Instructions and CLAUDE.md
 
@@ -79,7 +79,7 @@ Instructions are just markdown, but they land inside `CLAUDE.md` instead of gett
 <!-- ai-toolbox:output-guidelines:end -->
 ```
 
-That marker is the source of truth for the installed version — not the `ai-toolbox-installed.json` state file — so the status table stays accurate even if `CLAUDE.md` was hand-copied or committed on its own. Installing again after a version bump replaces the block in place; removing deletes it and leaves the rest of the file exactly as it was.
+That marker is the source of truth for the installed version, the same way a skill's own frontmatter is — so the status table stays accurate even if `CLAUDE.md` was hand-copied or committed on its own. Installing again after a version bump replaces the block in place; removing deletes it and leaves the rest of the file exactly as it was.
 
 - **User-level**: `~/.claude/CLAUDE.md`
 - **Repo-level**: `<repo>/CLAUDE.md`

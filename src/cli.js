@@ -2,11 +2,9 @@ import { Command } from "commander";
 import pc from "picocolors";
 import { fetchRegistry } from "./registry.js";
 import { findRepoRoot } from "./git.js";
-import { userStateFile, repoStateFile } from "./paths.js";
-import { readState } from "./state.js";
+import { targetFileFor } from "./paths.js";
 import { installTool, removeTool } from "./installer.js";
 import { getEffectiveInstalledVersion } from "./status.js";
-import { userClaudeMdPath, repoClaudeMdPath } from "./paths.js";
 import { renderTable } from "./table.js";
 import { runInteractive } from "./interactive.js";
 import { expandScope } from "./scope.js";
@@ -29,7 +27,7 @@ export function buildProgram() {
     .description("show the status table and exit")
     .action(async () => {
       const ctx = await loadContext(program.opts());
-      console.log(renderTable(ctx.tools, ctx.userState, ctx.repoRoot, ctx.repoState));
+      console.log(renderTable(ctx.tools, ctx.repoRoot));
     });
 
   program
@@ -94,9 +92,7 @@ export function buildProgram() {
 async function loadContext(globalOpts) {
   const tools = await fetchRegistry(globalOpts.source);
   const repoRoot = findRepoRoot(globalOpts.targetRepo);
-  const userState = readState(userStateFile());
-  const repoState = repoRoot ? readState(repoStateFile(repoRoot)) : [];
-  return { tools, repoRoot, userState, repoState, sourceRoot: globalOpts.source };
+  return { tools, repoRoot, sourceRoot: globalOpts.source };
 }
 
 function findTool(ctx, id) {
@@ -116,31 +112,21 @@ async function applyToOne(ctx, id, scopeName, action) {
 }
 
 async function installOne(ctx, tool, scopeName) {
-  const result = await installTool(tool, scopeName, ctx);
-  if (result.installs) {
-    if (scopeName === "user") ctx.userState = result.installs;
-    else ctx.repoState = result.installs;
-  }
+  await installTool(tool, scopeName, ctx);
   console.log(pc.green(`  Installed ${tool.id} v${tool.version} -> ${scopeName}`));
 }
 installOne.verb = "install";
 
 async function removeOne(ctx, tool, scopeName) {
-  const result = removeTool(tool, scopeName, ctx);
-  if (result.installs) {
-    if (scopeName === "user") ctx.userState = result.installs;
-    else ctx.repoState = result.installs;
-  }
+  removeTool(tool, scopeName, ctx);
   console.log(pc.yellow(`  Removed ${tool.id} from ${scopeName}`));
 }
 removeOne.verb = "remove";
 
 function outdatedIds(ctx, scopeName) {
-  const installs = scopeName === "user" ? ctx.userState : ctx.repoState;
-  const claudeMdPath = scopeName === "user" ? userClaudeMdPath() : ctx.repoRoot && repoClaudeMdPath(ctx.repoRoot);
   return ctx.tools
     .filter((tool) => {
-      const installed = getEffectiveInstalledVersion(tool, installs, claudeMdPath);
+      const installed = getEffectiveInstalledVersion(tool, targetFileFor(tool, scopeName, ctx.repoRoot));
       return installed && installed !== tool.version;
     })
     .map((tool) => tool.id);

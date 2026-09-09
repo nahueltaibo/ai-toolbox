@@ -1,6 +1,6 @@
 import Table from "cli-table3";
 import pc from "picocolors";
-import { userClaudeMdPath, repoClaudeMdPath } from "./paths.js";
+import { targetFileFor } from "./paths.js";
 import { getEffectiveInstalledVersion, formatStatus, getStatusColor } from "./status.js";
 
 const MAX_DESC_WIDTH = 55;
@@ -14,18 +14,14 @@ function colorize(status) {
   return COLOR[getStatusColor(status)](status);
 }
 
-export function renderTable(tools, userState, repoRoot, repoState) {
+export function renderTable(tools, repoRoot) {
   const table = new Table({ head: ["#", "Name", "Description", "User", "Repo"] });
 
   tools.forEach((tool, i) => {
-    const userVersion = getEffectiveInstalledVersion(tool, userState, userClaudeMdPath());
-    const userStatus = formatStatus(userVersion, tool);
-
-    let repoStatus = "-";
-    if (repoRoot) {
-      const repoVersion = getEffectiveInstalledVersion(tool, repoState, repoClaudeMdPath(repoRoot));
-      repoStatus = formatStatus(repoVersion, tool);
-    }
+    const userStatus = formatStatus(getEffectiveInstalledVersion(tool, targetFileFor(tool, "user", repoRoot)), tool);
+    const repoStatus = repoRoot
+      ? formatStatus(getEffectiveInstalledVersion(tool, targetFileFor(tool, "repo", repoRoot)), tool)
+      : "-";
 
     table.push([
       String(i + 1),
