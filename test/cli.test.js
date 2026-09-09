@@ -135,23 +135,22 @@ test("registry add rejects a malformed spec without saving it", async () => {
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-test("registry add rejects the reserved name \"default\"", async () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
-  withHome(home);
-
-  await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "default", "acme/tools"]);
-  assert.deepEqual(listRegistries(), {});
-  process.exitCode = 0; // the CLI action sets this for a real process exit; undo so it doesn't leak to the test runner
-
-  fs.rmSync(home, { recursive: true, force: true });
-});
-
 test("registry remove deletes a saved registry", async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
   withHome(home);
 
   await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "acme", "acme/tools"]);
   await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "remove", "acme"]);
+  assert.deepEqual(listRegistries(), {});
+
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("list with no registries configured prints without throwing", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  await buildProgram().parseAsync(["node", "ai-toolbox", "list"]);
   assert.deepEqual(listRegistries(), {});
 
   fs.rmSync(home, { recursive: true, force: true });

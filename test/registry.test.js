@@ -30,8 +30,8 @@ test("fetchRegistry reads and parses registry.json from a local source", async (
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test("resolveRegistryBase defaults to nahueltaibo/ai-toolbox@main", () => {
-  assert.equal(resolveRegistryBase(undefined), "https://raw.githubusercontent.com/nahueltaibo/ai-toolbox/main");
+test("resolveRegistryBase rejects an empty spec - there's no implicit default", () => {
+  assert.throws(() => resolveRegistryBase(undefined), /Invalid registry/);
 });
 
 test("resolveRegistryBase accepts owner/repo and defaults branch to main", () => {
@@ -46,5 +46,5 @@ test("resolveRegistryBase accepts an explicit @branch", () => {
 });
 
 test("resolveRegistryBase rejects a spec without owner/repo", () => {
-  assert.throws(() => resolveRegistryBase("not-a-repo"), /Invalid --registry/);
+  assert.throws(() => resolveRegistryBase("not-a-repo"), /Invalid registry/);
 });

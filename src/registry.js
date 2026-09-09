@@ -1,15 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const DEFAULT_REGISTRY = "nahueltaibo/ai-toolbox@main";
 const REGISTRY_RE = /^([^/@\s]+\/[^/@\s]+)(?:@([^\s]+))?$/;
 
-// Exported for testing. Resolves a --registry spec (or the public default)
-// into the raw.githubusercontent.com base to fetch from.
+// Exported for testing. Resolves an <owner>/<repo>[@branch] spec into the
+// raw.githubusercontent.com base to fetch from. No implicit default - every
+// registry the CLI talks to is one the user explicitly added.
 export function resolveRegistryBase(registrySpec) {
-  const spec = registrySpec || DEFAULT_REGISTRY;
-  const match = REGISTRY_RE.exec(spec);
-  if (!match) throw new Error(`Invalid --registry "${spec}" - expected <owner>/<repo>[@branch]`);
+  const match = REGISTRY_RE.exec(registrySpec || "");
+  if (!match) throw new Error(`Invalid registry "${registrySpec}" - expected <owner>/<repo>[@branch]`);
   const [, repo, branch = "main"] = match;
   return `https://raw.githubusercontent.com/${repo}/${branch}`;
 }

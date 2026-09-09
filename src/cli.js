@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import pc from "picocolors";
-import { fetchRegistry, resolveRegistryBase, DEFAULT_REGISTRY } from "./registry.js";
+import { fetchRegistry, resolveRegistryBase } from "./registry.js";
 import { findRepoRoot } from "./git.js";
 import { targetFileFor } from "./paths.js";
 import { installTool, removeTool } from "./installer.js";
@@ -19,15 +19,16 @@ export function buildProgram() {
     .option("--source <path>", "local ai-toolbox checkout to read from instead of GitHub")
     .option(
       "--registry <owner/repo[@branch]>",
-      "use only this registry for the command, instead of the public default merged with any `ai-toolbox registry add`ed ones"
+      "use only this registry for the command, instead of the merged set of `ai-toolbox registry add`ed ones"
     )
     .addHelpText(
       "after",
       `
 Examples:
+  $ ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox   # add a registry - this repo's own tools
   $ ai-toolbox interactive
   $ ai-toolbox install output-guidelines
-  $ ai-toolbox registry add acme acme/internal-ai-tools   # merge in your own registry
+  $ ai-toolbox registry add acme acme/internal-ai-tools           # merge in as many as you want
   $ ai-toolbox registry list`
     )
     // Bare `ai-toolbox` shows what the CLI can do, same as `git`/`npm`/`gh` with no subcommand -
@@ -102,17 +103,12 @@ Examples:
 
   const registryCmd = program
     .command("registry")
-    .description("manage additional registries - each is merged with the public default for list/install/update");
+    .description("manage registries - every one you add is merged for list/install/update");
 
   registryCmd
     .command("add <name> <owner/repo[@branch]>")
-    .description("save a registry under a name so it's always merged in")
+    .description("save a registry under a name so it's merged in")
     .action((name, spec) => {
-      if (name === "default") {
-        console.error(pc.red(`"default" is reserved for the built-in ${DEFAULT_REGISTRY} registry`));
-        process.exitCode = 1;
-        return;
-      }
       try {
         resolveRegistryBase(spec);
       } catch (err) {
@@ -134,19 +130,22 @@ Examples:
 
   registryCmd
     .command("list")
-    .description("show every registry that gets merged in")
+    .description("show every configured registry")
     .action(() => {
-      console.log(`${pc.dim("default")}  ${DEFAULT_REGISTRY} (built-in)`);
-      for (const [name, spec] of Object.entries(listRegistries())) {
-        console.log(`${name}  ${spec}`);
+      const entries = Object.entries(listRegistries());
+      if (entries.length === 0) {
+        console.log(pc.dim('No registries configured. Run "ai-toolbox registry add <name> <owner/repo[@branch]>".'));
+        return;
       }
+      for (const [name, spec] of entries) console.log(`${name}  ${spec}`);
     });
 
   return program;
 }
 
-// Merges the public default registry with every `ai-toolbox registry add`ed
-// one, unless --source or --registry narrows the run to a single registry.
+// Merges every `ai-toolbox registry add`ed registry, unless --source or
+// --registry narrows the run to a single one. There's no implicit default -
+// a fresh install has nothing configured until `registry add` is run.
 // Each returned tool carries the registry it came from (installer.js reads
 // tool.registry back out when it fetches that tool's content).
 async function resolveTools(globalOpts) {
@@ -157,9 +156,14 @@ async function resolveTools(globalOpts) {
     return tools.map((tool) => ({ ...tool, registry: globalOpts.registry }));
   }
 
-  const sources = [{ name: "default", spec: undefined }, ...Object.entries(listRegistries()).map(([name, spec]) => ({ name, spec }))];
+  const configured = Object.entries(listRegistries());
+  if (configured.length === 0) {
+    console.error(pc.yellow('No registries configured. Run "ai-toolbox registry add <name> <owner/repo[@branch]>" first.'));
+    return [];
+  }
+
   const merged = new Map();
-  for (const { name, spec } of sources) {
+  for (const [name, spec] of configured) {
     let tools;
     try {
       tools = await fetchRegistry(undefined, spec);

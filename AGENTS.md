@@ -14,18 +14,19 @@ ai-toolbox list --source .     # exercise it against this repo's own registry.js
 
 No `npm link` set up, or just want a one-off run? `node bin/ai-toolbox.js <args>` works directly from the repo root.
 
-### Installing from other registries
+### Registries
 
-`nahueltaibo/ai-toolbox@main` is always available. Anyone can also merge in their own fork or a private company registry, live, with no code change:
+There's no registry built into the CLI - every one is something the user (or `--source .` for local dev) points it at, including this repo's own `nahueltaibo/ai-toolbox`. Anyone can merge in their own fork or a private company registry, live, with no code change:
 
 ```bash
-ai-toolbox registry add acme acme/internal-ai-tools           # branch defaults to main
+ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox     # this repo's own tools
+ai-toolbox registry add acme acme/internal-ai-tools            # branch defaults to main
 ai-toolbox registry add acme-beta acme/internal-ai-tools@beta
-ai-toolbox registry list                                      # default + every saved one
+ai-toolbox registry list                                       # every saved one
 ai-toolbox registry remove acme-beta
 ```
 
-Saved registries live in `~/.ai-toolbox/config.json` (`src/config.js`) and are merged with the public default on every `list`/`install`/`update`/`interactive` — a tool from any of them installs the same way, by its plain `id`. If two registries define the same tool `id`, the first one loaded (default, then saved registries in the order `registry add` was run) wins and the rest are skipped with a warning — pick non-colliding ids rather than relying on that order.
+Saved registries live in `~/.ai-toolbox/config.json` (`src/config.js`) and are merged on every `list`/`install`/`update`/`interactive` — a tool from any of them installs the same way, by its plain `id`. If none are configured, `resolveTools()` prints a hint to run `registry add` and returns an empty tool list rather than fetching anything. If two registries define the same tool `id`, the first one loaded (in the order `registry add` was run) wins and the rest are skipped with a warning — pick non-colliding ids rather than relying on that order.
 
 `--registry <owner/repo[@branch]>` narrows a single run to *only* that one registry, bypassing the merge entirely (useful for a one-off test). `--source <path>` (local checkout, no network) takes priority over all of it. A registry only needs to match the shape this repo exposes publicly — a root `registry.json` plus the `skills/<id>/SKILL.md` and `rules/<id>/CONTENT.md` files it points at — nothing else here (`bin/`, `src/`, `package.json`) is ever fetched.
 
@@ -55,8 +56,6 @@ Two independent version numbers exist here — don't conflate them:
 - **`package.json`'s `version`** — bump this when you change the *CLI's own code* (`bin/`, `src/`). This is what triggers a release.
 
 To ship a CLI change: bump `package.json`'s version, merge to `main`. CI (`.github/workflows/ci.yml`) runs the full test matrix, then publishes to npm automatically if that version isn't on the registry yet — re-running CI on a version already published is a harmless no-op, not a failure.
-
-A `registry.json` `type` value (`skill`, `rules`) is data, but what each one *means* is hardcoded in the published CLI's `src/paths.js`/`installer.js`/`status.js`. An already-installed old CLI that doesn't recognize a `type` falls through to the skill-install path for it, which is wrong. Introducing a new `type` (or renaming one, like `instructions` → `rules`) needs a `package.json` bump and an npm publish landed *before* `registry.json` on `main` starts using it — otherwise CLIs still on the old version mishandle that tool the next time they run.
 
 ## Architecture notes
 

@@ -6,8 +6,11 @@ Personal AI tooling — skills, agents, rules, whatever shape a given piece take
 
 ```bash
 npm install -g @nahueltaibo/ai-toolbox
+ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox   # this repo's own tools
 ai-toolbox interactive
 ```
+
+`ai-toolbox` ships with no registry built in — it's a generic installer, not tied to one catalog. `registry add` is a one-time step: point it at this repo for the tools below, your own fork, or a private company registry (see [Registries](#registries)). Everything after that is the normal flow.
 
 `ai-toolbox` with no arguments shows the commands it supports, same as `git` or `npm`. `ai-toolbox interactive` is the picker: a table of what's available, where each one is already installed (and at what version), and a walkthrough of picking what to install, update, or remove.
 
@@ -33,20 +36,21 @@ ai-toolbox update                            # re-installs anything with a newer
 
 No global install? `npx @nahueltaibo/ai-toolbox interactive` runs the same thing without one. Run it again any time — it diffs against what's already in place and only touches what changed.
 
-## Other registries
+## Registries
 
-The public registry (`nahueltaibo/ai-toolbox`) is always there. Add your own on top — a fork, a private company repo — and it merges right in, so `list`, `install`, and `update` see tools from all of them at once:
+Every registry is something you added — there's no built-in one. Add as many as you want and they all merge in, so `list`, `install`, and `update` see tools from every one of them at once:
 
 ```bash
-ai-toolbox registry add acme acme/internal-ai-tools           # branch defaults to main
+ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox     # this repo's own tools
+ai-toolbox registry add acme acme/internal-ai-tools            # branch defaults to main
 ai-toolbox registry add acme-beta acme/internal-ai-tools@beta
 ai-toolbox registry list
 ai-toolbox registry remove acme-beta
 ```
 
-Install by plain id either way — `ai-toolbox install some-tool` finds it wherever it lives. If two registries define the same id, whichever loads first wins (the public default, then your registries in the order you added them), and you'll see a warning about the one that got skipped — worth avoiding rather than relying on.
+Install by plain id regardless of which registry it came from — `ai-toolbox install some-tool` finds it wherever it lives. If two registries define the same id, whichever loads first wins (in the order you ran `registry add`), and you'll see a warning about the one that got skipped — worth avoiding rather than relying on.
 
-A private registry just needs to look like this repo: a `registry.json` at the root, plus the `skills/<id>/SKILL.md` or `rules/<id>/CONTENT.md` files it points to.
+A registry just needs to look like this repo: a `registry.json` at the root, plus the `skills/<id>/SKILL.md` or `rules/<id>/CONTENT.md` files it points to.
 
 Want a one-off run against a single registry instead of the merged set? `--registry <owner/repo[@branch]>` overrides everything for that command, e.g. `ai-toolbox list --registry acme/internal-ai-tools@beta`.
 
