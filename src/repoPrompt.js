@@ -1,14 +1,26 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import untildify from "untildify";
 import { input } from "@inquirer/prompts";
+
+const TILDE_PATTERN = /^~(?:([/\\])(.*))?$/;
 
 // Split out from the prompt so it stays testable without stubbing the prompt library.
 export function resolveRepoPath(rawPath) {
   const trimmed = rawPath.trim().replace(/^['"]|['"]$/g, "");
   if (!trimmed) return trimmed;
   const expanded = trimmed.replace(/%([^%]+)%/g, (match, name) => process.env[name] ?? match);
-  return path.normalize(untildify(expanded));
+
+  // No path library does this reliably cross-platform - a naive substitution leaves the
+  // '~'-relative remainder in whatever separator style was typed, which is wrong when that's the
+  // *other* platform's separator - e.g. '~\code', pasted from a Windows path while on Linux/macOS.
+  const tildeMatch = expanded.match(TILDE_PATTERN);
+  if (tildeMatch) {
+    const rest = tildeMatch[2] ?? "";
+    return path.normalize(rest ? path.join(os.homedir(), rest.replace(/\\/g, "/")) : os.homedir());
+  }
+
+  return path.normalize(expanded);
 }
 
 // Lets the installer target a repo when it wasn't launched from inside one - the normal case for
