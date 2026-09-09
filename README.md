@@ -51,17 +51,6 @@ Skills and instructions install differently:
 
 Claude Code and GitHub Copilot both read the same open Agent Skills format — a `SKILL.md` file with `name` and `description` frontmatter — out of the same well-known folders. No conversion, no per-tool copy: one file works for both.
 
-```mermaid
-flowchart TD
-    R[registry.json] --> I[install script]
-    I --> U["~/.claude/skills/&lt;id&gt;<br/>user-level"]
-    I --> P[".claude/skills/&lt;id&gt;<br/>repo-level"]
-    U --> UC[Claude Code]
-    U --> UG["Copilot agent mode (VS Code)"]
-    P --> PC[Claude Code]
-    P --> PG["Copilot — coding agent, CLI, VS Code"]
-```
-
 - **User-level** (`~/.claude/skills/<id>/SKILL.md`): Claude Code, and Copilot's agent mode in VS Code, both check this folder directly.
 - **Repo-level** (`<repo>/.claude/skills/<id>/SKILL.md`): Claude Code and every Copilot surface — coding agent, CLI, VS Code — check `.claude/skills/` in the repo, same as `.github/skills/` and `.agents/skills/`.
 
