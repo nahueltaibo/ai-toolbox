@@ -14,6 +14,10 @@ ai-toolbox list --source .     # exercise it against this repo's own registry.js
 
 No `npm link` set up, or just want a one-off run? `node bin/ai-toolbox.js <args>` works directly from the repo root.
 
+## Adding a tool
+
+Drop a new folder under the matching type with its native file inside (`skills/<id>/SKILL.md` or `instructions/<id>/CONTENT.md`), then add an entry to `registry.json` with its `id`, `type` (`skill` or `instructions`), `description`, `version`, and `path`. Bump `version` whenever you change something's content — that's what tells the installer an update is available.
+
 ## Testing
 
 ```bash
@@ -25,6 +29,7 @@ Platform gotchas the test suite works around, worth knowing before adding more:
 - **`os.homedir()` reads `USERPROFILE` on Windows, `HOME` on POSIX** — a test that fakes the home directory has to set both, or it silently does nothing on whichever platform it's actually running on.
 - **Windows temp paths can be short-form (`NAHUEL~1`) or long-form depending on where the string came from** (`%TEMP%` vs. `git`'s own output, vs. `fs.realpathSync`). Don't assert on a literal path string built two different ways — resolve both sides through the same call (e.g. a second `git rev-parse`) before comparing.
 - **A test helper that does `try { return fn() } finally { restore() }` with an async `fn` restores too early** — the `finally` runs as soon as `fn()` returns a pending promise, not when it settles. Always `return await fn()` inside the try.
+
 
 ## Releasing a new version
 

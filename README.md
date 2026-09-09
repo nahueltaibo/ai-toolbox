@@ -73,17 +73,6 @@ That marker is the source of truth for the installed version, the same way a ski
 - **User-level**: `~/.claude/CLAUDE.md`
 - **Repo-level**: `<repo>/CLAUDE.md`
 
-## Manual install
-
-No script needed.
-
-- **Skills**: copy `skills/<id>/SKILL.md` to `~/.claude/skills/<id>/SKILL.md` (user-level) or `<repo>/.claude/skills/<id>/SKILL.md` (repo-level).
-- **Instructions**: paste `instructions/<id>/CONTENT.md` into `CLAUDE.md`, wrapped in the marker comments shown above.
-
-## Adding a tool
-
-Drop a new folder under the matching type with its native file inside (`skills/<id>/SKILL.md` or `instructions/<id>/CONTENT.md`), then add an entry to `registry.json` with its `id`, `type` (`skill` or `instructions`), `description`, `version`, and `path`. Bump `version` whenever you change something's content — that's what tells the installer an update is available.
-
 ## License
 
 [MIT](LICENSE)
