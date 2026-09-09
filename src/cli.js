@@ -1,0 +1,140 @@
+import { Command } from "commander";
+import pc from "picocolors";
+import { fetchRegistry } from "./registry.js";
+import { findRepoRoot } from "./git.js";
+import { userStateFile, repoStateFile } from "./paths.js";
+import { readState } from "./state.js";
+import { installTool, removeTool } from "./installer.js";
+import { getEffectiveInstalledVersion } from "./status.js";
+import { userClaudeMdPath, repoClaudeMdPath } from "./paths.js";
+import { renderTable } from "./table.js";
+import { runInteractive } from "./interactive.js";
+import { expandScope } from "./scope.js";
+
+export function buildProgram() {
+  const program = new Command();
+  program
+    .name("ai-toolbox")
+    .description("Install personal AI tooling (skills, instructions) from the ai-toolbox registry")
+    .option("--target-repo <path>", "override repo-scope target instead of auto-detecting the git root")
+    .option("--source <path>", "local ai-toolbox checkout to read from instead of GitHub")
+    .action(async () => {
+      const ctx = await loadContext(program.opts());
+      if (process.stdin.isTTY && process.stdout.isTTY) {
+        await runInteractive(ctx);
+        return;
+      }
+      // No real console to prompt in (piped stdin, CI, some editor panels) - print status and
+      // point at the scriptable subcommands instead of faking an interactive session.
+      console.log(renderTable(ctx.tools, ctx.userState, ctx.repoRoot, ctx.repoState));
+      console.log("Not an interactive terminal. Use: ai-toolbox install|remove|update|list <id...>");
+    });
+
+  program
+    .command("list")
+    .description("show the status table and exit")
+    .action(async () => {
+      const ctx = await loadContext(program.opts());
+      console.log(renderTable(ctx.tools, ctx.userState, ctx.repoRoot, ctx.repoState));
+    });
+
+  program
+    .command("install")
+    .description("install or update one or more tools")
+    .argument("<ids...>", "tool id(s) from the registry")
+    .option("--scope <user|repo|both>", "install scope", "user")
+    .action(async (ids, opts) => {
+      const ctx = await loadContext(program.opts());
+      for (const scopeName of expandScope(opts.scope)) {
+        for (const id of ids) {
+          await applyToOne(ctx, id, scopeName, installOne);
+        }
+      }
+    });
+
+  program
+    .command("remove")
+    .description("remove one or more tools")
+    .argument("<ids...>", "tool id(s) from the registry")
+    .option("--scope <user|repo|both>", "removal scope", "user")
+    .action(async (ids, opts) => {
+      const ctx = await loadContext(program.opts());
+      for (const scopeName of expandScope(opts.scope)) {
+        for (const id of ids) {
+          await applyToOne(ctx, id, scopeName, removeOne);
+        }
+      }
+    });
+
+  program
+    .command("update")
+    .description("re-install tools at the current registry version (all outdated installed tools if none named)")
+    .argument("[ids...]", "tool id(s); omit to update every outdated installed tool")
+    .option("--scope <user|repo|both>", "update scope", "user")
+    .action(async (ids, opts) => {
+      const ctx = await loadContext(program.opts());
+      for (const scopeName of expandScope(opts.scope)) {
+        const targets = ids.length > 0 ? ids : outdatedIds(ctx, scopeName);
+        for (const id of targets) {
+          await applyToOne(ctx, id, scopeName, installOne);
+        }
+      }
+    });
+
+  return program;
+}
+
+async function loadContext(globalOpts) {
+  const tools = await fetchRegistry(globalOpts.source);
+  const repoRoot = findRepoRoot(globalOpts.targetRepo);
+  const userState = readState(userStateFile());
+  const repoState = repoRoot ? readState(repoStateFile(repoRoot)) : [];
+  return { tools, repoRoot, userState, repoState, sourceRoot: globalOpts.source };
+}
+
+function findTool(ctx, id) {
+  const tool = ctx.tools.find((t) => t.id === id);
+  if (!tool) console.error(pc.red(`Unknown tool id: ${id}`));
+  return tool;
+}
+
+async function applyToOne(ctx, id, scopeName, action) {
+  const tool = findTool(ctx, id);
+  if (!tool) return;
+  if (scopeName === "repo" && !ctx.repoRoot) {
+    console.log(pc.yellow(`  No git repo detected here - skipping repo ${action.verb} for ${id}`));
+    return;
+  }
+  await action(ctx, tool, scopeName);
+}
+
+async function installOne(ctx, tool, scopeName) {
+  const result = await installTool(tool, scopeName, ctx);
+  if (result.installs) {
+    if (scopeName === "user") ctx.userState = result.installs;
+    else ctx.repoState = result.installs;
+  }
+  console.log(pc.green(`  Installed ${tool.id} v${tool.version} -> ${scopeName}`));
+}
+installOne.verb = "install";
+
+async function removeOne(ctx, tool, scopeName) {
+  const result = removeTool(tool, scopeName, ctx);
+  if (result.installs) {
+    if (scopeName === "user") ctx.userState = result.installs;
+    else ctx.repoState = result.installs;
+  }
+  console.log(pc.yellow(`  Removed ${tool.id} from ${scopeName}`));
+}
+removeOne.verb = "remove";
+
+function outdatedIds(ctx, scopeName) {
+  const installs = scopeName === "user" ? ctx.userState : ctx.repoState;
+  const claudeMdPath = scopeName === "user" ? userClaudeMdPath() : ctx.repoRoot && repoClaudeMdPath(ctx.repoRoot);
+  return ctx.tools
+    .filter((tool) => {
+      const installed = getEffectiveInstalledVersion(tool, installs, claudeMdPath);
+      return installed && installed !== tool.version;
+    })
+    .map((tool) => tool.id);
+}

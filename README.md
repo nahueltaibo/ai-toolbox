@@ -4,20 +4,34 @@ Personal AI tooling — skills, agents, instructions, whatever shape a given pie
 
 ## Install
 
-```powershell
-irm https://raw.githubusercontent.com/nahueltaibo/ai-toolbox/main/installer/install.ps1 | iex
+```bash
+npm install -g @nahueltaibo/ai-toolbox
+ai-toolbox
 ```
 
-That downloads the installer and runs it — no clone, nothing to install beyond PowerShell. It shows you a table of what's available, where each one is already installed (and at what version), and lets you pick what to install, update, or remove.
+`ai-toolbox` with no arguments shows a table of what's available, where each one is already installed (and at what version), and walks you through picking what to install, update, or remove.
 
 ```text
-#  Name                User            Repo
-1  markdown-authoring  v1.0.0          not installed
+┌───┬────────────────────┬───────────────────────────────────┬────────┬───────────────┐
+│ # │ Name               │ Description                       │ User   │ Repo          │
+├───┼────────────────────┼───────────────────────────────────┼────────┼───────────────┤
+│ 1 │ markdown-authoring │ Tone, structure, and formatting...│ v1.0.0 │ not installed │
+└───┴────────────────────┴───────────────────────────────────┴────────┴───────────────┘
 ```
 
-You can install to your user profile, to a repo, or both. If you're not standing in a git repo it asks where to put the repo-level copy, which is the normal case when you run this straight from your home directory.
+You can install to your user profile, to a repo, or both. If you're not standing in a git repo it asks where to put the repo-level copy.
 
-Run it again any time — it diffs against what's already in place and only touches what changed.
+Prefer scripting or CI over the picker? Skip straight to a subcommand:
+
+```bash
+ai-toolbox list                              # status table, no prompt
+ai-toolbox install output-guidelines         # install/update, user scope by default
+ai-toolbox install markdown-authoring --scope repo
+ai-toolbox remove output-guidelines
+ai-toolbox update                            # re-installs anything with a newer version available
+```
+
+No global install? `npx @nahueltaibo/ai-toolbox` runs the same thing without one. Run it again any time — it diffs against what's already in place and only touches what changed.
 
 ## What's inside
 
