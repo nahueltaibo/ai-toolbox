@@ -18,16 +18,10 @@ export function buildProgram() {
     .description("Install personal AI tooling (skills, instructions) from the ai-toolbox registry")
     .option("--target-repo <path>", "override repo-scope target instead of auto-detecting the git root")
     .option("--source <path>", "local ai-toolbox checkout to read from instead of GitHub")
-    .action(async () => {
-      const ctx = await loadContext(program.opts());
-      if (process.stdin.isTTY && process.stdout.isTTY) {
-        await runInteractive(ctx);
-        return;
-      }
-      // No real console to prompt in (piped stdin, CI, some editor panels) - print status and
-      // point at the scriptable subcommands instead of faking an interactive session.
-      console.log(renderTable(ctx.tools, ctx.userState, ctx.repoRoot, ctx.repoState));
-      console.log("Not an interactive terminal. Use: ai-toolbox install|remove|update|list <id...>");
+    // Bare `ai-toolbox` shows what the CLI can do, same as `git`/`npm`/`gh` with no subcommand -
+    // it does not launch anything. The picker lives at `ai-toolbox interactive`, opted into by name.
+    .action(() => {
+      program.help();
     });
 
   program
@@ -36,6 +30,19 @@ export function buildProgram() {
     .action(async () => {
       const ctx = await loadContext(program.opts());
       console.log(renderTable(ctx.tools, ctx.userState, ctx.repoRoot, ctx.repoState));
+    });
+
+  program
+    .command("interactive")
+    .description("browse the table and pick what to install, update, or remove")
+    .action(async () => {
+      const ctx = await loadContext(program.opts());
+      if (!process.stdin.isTTY || !process.stdout.isTTY) {
+        console.error("Not an interactive terminal. Use: ai-toolbox install|remove|update|list <id...>");
+        process.exitCode = 1;
+        return;
+      }
+      await runInteractive(ctx);
     });
 
   program

@@ -6,10 +6,10 @@ Personal AI tooling — skills, agents, instructions, whatever shape a given pie
 
 ```bash
 npm install -g @nahueltaibo/ai-toolbox
-ai-toolbox
+ai-toolbox interactive
 ```
 
-`ai-toolbox` with no arguments shows a table of what's available, where each one is already installed (and at what version), and walks you through picking what to install, update, or remove.
+`ai-toolbox` with no arguments shows the commands it supports, same as `git` or `npm`. `ai-toolbox interactive` is the picker: a table of what's available, where each one is already installed (and at what version), and a walkthrough of picking what to install, update, or remove.
 
 ```text
 ┌───┬────────────────────┬───────────────────────────────────┬────────┬───────────────┐
@@ -31,7 +31,7 @@ ai-toolbox remove output-guidelines
 ai-toolbox update                            # re-installs anything with a newer version available
 ```
 
-No global install? `npx @nahueltaibo/ai-toolbox` runs the same thing without one. Run it again any time — it diffs against what's already in place and only touches what changed.
+No global install? `npx @nahueltaibo/ai-toolbox interactive` runs the same thing without one. Run it again any time — it diffs against what's already in place and only touches what changed.
 
 ## What's inside
 
@@ -67,7 +67,7 @@ flowchart TD
 
 GitHub Copilot CLI's own personal folder is `~/.copilot/skills/` rather than `~/.claude/skills/` — copy the same file there too if you use the CLI and want it picked up without a repo checkout.
 
-Each install location keeps a small `.ai-framework-installed.json` file recording what's there and at what version — that's what powers the status column in the table. The repo-level one gets committed, so anyone cloning a repo you've set this up in sees the same state.
+Each install location keeps a small `ai-toolbox-installed.json` file (inside `.claude/`, next to `skills/`) recording what's there and at what version — that's what powers the status column in the table. The repo-level one gets committed, so anyone cloning a repo you've set this up in sees the same state.
 
 ## Instructions and CLAUDE.md
 
