@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Install personal AI tooling (skills, instructions) from the ai-toolbox registry into Claude Code / GitHub Copilot",
   "type": "module",
+  "license": "MIT",
   "bin": {
     "ai-toolbox": "./bin/ai-toolbox.js"
   },

@@ -94,3 +94,7 @@ No script needed.
 ## Adding a tool
 
 Drop a new folder under the matching type with its native file inside (`skills/<id>/SKILL.md` or `instructions/<id>/CONTENT.md`), then add an entry to `registry.json` with its `id`, `type` (`skill` or `instructions`), `description`, `version`, and `path`. Bump `version` whenever you change something's content — that's what tells the installer an update is available.
+
+## License
+
+[MIT](LICENSE)
