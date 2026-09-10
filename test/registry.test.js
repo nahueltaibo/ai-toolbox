@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fetchText, fetchRegistry, resolveRegistryBase, isLocalRegistry, resolveLocalRegistryPath, validateRegistrySpec } from "../src/registry.js";
+import { pathToFileURL } from "node:url";
+import { fetchText, fetchRegistry, resolveRegistryBase, isLocalRegistry, resolveLocalRegistryPath, validateRegistrySpec, linkFor } from "../src/registry.js";
 
 async function withMockFetch(mockFetch, fn) {
   const realFetch = globalThis.fetch;
@@ -186,4 +187,23 @@ test("fetchText surfaces a non-ok GitHub response as an error", async () => {
       await assert.rejects(() => fetchText("registry.json", undefined, "acme/tools"), /Failed to fetch registry\.json: 404/);
     }),
   );
+});
+
+test("linkFor points at a GitHub blob URL for a GitHub registry", () => {
+  assert.equal(
+    linkFor("rules/output-guidelines/CONTENT.md", undefined, "acme/tools@release"),
+    "https://github.com/acme/tools/blob/release/rules/output-guidelines/CONTENT.md",
+  );
+});
+
+test("linkFor points at a file:// URL for a local registry", () => {
+  const registryDir = path.resolve(os.tmpdir(), "ai-toolbox-registry");
+  const link = linkFor("skills/demo/SKILL.md", undefined, registryDir);
+  assert.equal(link, pathToFileURL(path.join(registryDir, "skills/demo/SKILL.md")).href);
+});
+
+test("linkFor prefers sourceRoot over a registry spec, matching fetchText", () => {
+  const registryDir = path.resolve(os.tmpdir(), "ai-toolbox-registry");
+  const link = linkFor("skills/demo/SKILL.md", registryDir, "acme/tools");
+  assert.ok(link.startsWith("file://"), "sourceRoot should win, not the GitHub spec");
 });

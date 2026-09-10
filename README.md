@@ -10,7 +10,7 @@ ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox   # or any other regi
 ai-toolbox interactive
 ```
 
-`registry add` is a one-time step per registry (see [Registries](#registries)). Everything after that is the normal flow.
+`registry add` is a one-time step per registry (see [Registries](#registries)). Everything after that is the normal flow — and the CLI tells you what to run next at each point: nothing configured yet prints the `registry add` command to run, and adding a registry prints `list`/`view`/`install` with one of its real tool ids filled in.
 
 `ai-toolbox` with no arguments shows the commands it supports, same as `git` or `npm`. `ai-toolbox interactive` is the picker: a table of what's available, where each one is already installed (and at what version), and a walkthrough of picking what to install, update, or remove.
 
@@ -28,6 +28,7 @@ Prefer scripting or CI over the picker? Skip straight to a subcommand:
 
 ```bash
 ai-toolbox list                              # status table, no prompt
+ai-toolbox view output-guidelines            # print a link to check it before installing
 ai-toolbox install output-guidelines         # install/update, user scope by default
 ai-toolbox install markdown-authoring --scope repo
 ai-toolbox remove output-guidelines
@@ -35,6 +36,8 @@ ai-toolbox update                            # re-installs anything with a newer
 ```
 
 No global install? `npx @nahueltaibo/ai-toolbox interactive` runs the same thing without one. Run it again any time — it diffs against what's already in place and only touches what changed.
+
+Want to see what a tool actually contains before installing it? `ai-toolbox view <id>` prints a link straight to the file — a `file://` link for a local registry, a GitHub blob link otherwise — so you can open it with whatever you already have (browser, editor, `cat`) and come back to `install` once you're happy with it. No content is downloaded or written anywhere by `view` itself.
 
 ## Registries
 

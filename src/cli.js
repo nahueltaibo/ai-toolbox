@@ -3,12 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import pc from "picocolors";
-import { validateRegistrySpec } from "./registry.js";
+import { validateRegistrySpec, fetchRegistry, isLocalRegistry } from "./registry.js";
 import { renderTable } from "./table.js";
 import { runInteractive } from "./interactive.js";
 import { expandScope } from "./scope.js";
 import { addRegistry, removeRegistry, listRegistries } from "./config.js";
-import { loadContext, applyToOne, installOne, removeOne, outdatedIds } from "./toolActions.js";
+import { loadContext, applyToOne, installOne, removeOne, outdatedIds, viewOne } from "./toolActions.js";
+import { printNoRegistriesHint, printNextStepsHint } from "./hints.js";
 
 const packageDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const { version } = JSON.parse(fs.readFileSync(path.join(packageDir, "package.json"), "utf8"));
@@ -31,6 +32,7 @@ export function buildProgram() {
 Examples:
   $ ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox   # add a registry - this repo's own tools
   $ ai-toolbox interactive
+  $ ai-toolbox view output-guidelines                             # see what it contains first
   $ ai-toolbox install output-guidelines
   $ ai-toolbox registry add acme acme/internal-ai-tools           # merge in as many as you want
   $ ai-toolbox registry add local-dev ./my-registry               # or a local folder, same shape
@@ -92,6 +94,17 @@ Examples:
     });
 
   program
+    .command("view")
+    .description("print a link to a tool's raw content, so you can check it before installing")
+    .argument("<ids...>", "tool id(s) from the registry")
+    .action(async (ids) => {
+      const ctx = await loadContext(program.opts());
+      for (const id of ids) {
+        viewOne(ctx, id);
+      }
+    });
+
+  program
     .command("update")
     .description("re-install tools at the current registry version (all outdated installed tools if none named)")
     .argument("[ids...]", "tool id(s); omit to update every outdated installed tool")
@@ -113,7 +126,7 @@ Examples:
   registryCmd
     .command("add <name> <owner/repo[@branch]|path>")
     .description("save a registry under a name so it's merged in - a GitHub owner/repo[@branch] or a local folder")
-    .action((name, spec) => {
+    .action(async (name, spec) => {
       let resolved;
       try {
         resolved = validateRegistrySpec(spec);
@@ -124,6 +137,21 @@ Examples:
       }
       addRegistry(name, resolved);
       console.log(pc.green(`Added registry "${name}" -> ${resolved}`));
+
+      // Only read the registry for a real example id when it's local (instant, no
+      // network) - a GitHub spec falls back to a <id> placeholder rather than paying
+      // for a live fetch (with everything that can go wrong over a network) on every
+      // `registry add`, just to make one line of hint text nicer.
+      let exampleId;
+      if (isLocalRegistry(resolved)) {
+        try {
+          const tools = await fetchRegistry(undefined, resolved);
+          exampleId = tools[0]?.id;
+        } catch {
+          // best-effort only - the registry itself was still saved
+        }
+      }
+      printNextStepsHint(exampleId);
     });
 
   registryCmd
@@ -140,7 +168,7 @@ Examples:
     .action(() => {
       const entries = Object.entries(listRegistries());
       if (entries.length === 0) {
-        console.log(pc.dim('No registries configured. Run "ai-toolbox registry add <name> <owner/repo[@branch]>".'));
+        printNoRegistriesHint();
         return;
       }
       for (const [name, spec] of entries) console.log(`${name}  ${spec}`);

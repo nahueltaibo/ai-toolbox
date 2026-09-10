@@ -171,3 +171,95 @@ test("registry add accepts a local folder and it installs through the normal mer
   fs.rmSync(source, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });
 });
+
+async function withCapturedLog(fn) {
+  const lines = [];
+  const realLog = console.log;
+  console.log = (msg) => lines.push(msg);
+  try {
+    await fn();
+  } finally {
+    console.log = realLog;
+  }
+  return lines;
+}
+
+async function withCapturedOutput(fn) {
+  const lines = [];
+  const realLog = console.log;
+  const realError = console.error;
+  console.log = (msg) => lines.push(msg);
+  console.error = (msg) => lines.push(msg);
+  try {
+    await fn();
+  } finally {
+    console.log = realLog;
+    console.error = realError;
+  }
+  return lines;
+}
+
+test("view prints a link for a known tool without installing it", async () => {
+  const source = makeSourceRoot();
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  const lines = await withCapturedLog(() =>
+    buildProgram().parseAsync(["node", "ai-toolbox", "--source", source, "view", "demo-tool"]),
+  );
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /^demo-tool\s+file:\/\//);
+  assert.ok(!fs.existsSync(installedSkillPath("demo-tool")), "view should not install anything");
+
+  fs.rmSync(source, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("view reports an unknown tool id without throwing", async () => {
+  const source = makeSourceRoot();
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  await buildProgram().parseAsync(["node", "ai-toolbox", "--source", source, "view", "does-not-exist"]);
+
+  fs.rmSync(source, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("registry add for a local folder hints the next step with a real tool id", async () => {
+  const source = makeSourceRoot();
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  const lines = await withCapturedOutput(() =>
+    buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "local-dev", source]),
+  );
+  assert.ok(lines.some((l) => l.includes("Next:")));
+  assert.ok(lines.some((l) => l.includes("ai-toolbox view demo-tool")));
+  assert.ok(lines.some((l) => l.includes("ai-toolbox install demo-tool")));
+
+  fs.rmSync(source, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("registry add for a GitHub spec hints the next step with a placeholder, no network call", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  const lines = await withCapturedOutput(() =>
+    buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "acme", "acme/tools"]),
+  );
+  assert.ok(lines.some((l) => l.includes("ai-toolbox view <id>")));
+
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("list with no registries configured hints registry add with a copy-pasteable example", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  const lines = await withCapturedOutput(() => buildProgram().parseAsync(["node", "ai-toolbox", "list"]));
+  assert.ok(lines.some((l) => l.includes("ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox")));
+
+  fs.rmSync(home, { recursive: true, force: true });
+});

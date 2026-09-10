@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const REGISTRY_RE = /^([^/@\s]+\/[^/@\s]+)(?:@([^\s]+))?$/;
 
@@ -91,8 +92,12 @@ async function fetchFromGitHub(registrySpec, relativePath) {
   return response.text();
 }
 
+function resolveLocalRoot(sourceRoot, registry) {
+  return sourceRoot || (isLocalRegistry(registry) ? registry : null);
+}
+
 export async function fetchText(relativePath, sourceRoot, registry) {
-  const localRoot = sourceRoot || (isLocalRegistry(registry) ? registry : null);
+  const localRoot = resolveLocalRoot(sourceRoot, registry);
   if (localRoot) {
     const filePath = path.join(localRoot, relativePath);
     if (!fs.existsSync(filePath)) throw new Error(`Not found: ${filePath}`);
@@ -105,4 +110,17 @@ export async function fetchRegistry(sourceRoot, registry) {
   const text = await fetchText("registry.json", sourceRoot, registry);
   const parsed = JSON.parse(text);
   return parsed.tools ?? [];
+}
+
+// A link the user can open with whatever they already have - no fetch, no temp file,
+// no guessing which app to launch. A local registry (or a --source run) points straight
+// at the file already on disk via a file:// URL; a GitHub registry points at the repo's
+// own blob view, which renders markdown nicely and respects the viewer's own GitHub
+// session for a private repo (nothing to do with the CLI's own GITHUB_TOKEN).
+export function linkFor(relativePath, sourceRoot, registry) {
+  const localRoot = resolveLocalRoot(sourceRoot, registry);
+  if (localRoot) return pathToFileURL(path.join(localRoot, relativePath)).href;
+
+  const { repo, branch } = parseGitHubSpec(registry);
+  return `https://github.com/${repo}/blob/${branch}/${relativePath}`;
 }

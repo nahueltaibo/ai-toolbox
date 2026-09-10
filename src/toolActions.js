@@ -1,10 +1,11 @@
 import pc from "picocolors";
-import { fetchRegistry } from "./registry.js";
+import { fetchRegistry, linkFor } from "./registry.js";
 import { findRepoRoot } from "./git.js";
 import { targetFileFor } from "./paths.js";
 import { installTool, removeTool } from "./installer.js";
 import { getEffectiveInstalledVersion } from "./status.js";
 import { listRegistries } from "./config.js";
+import { printNoRegistriesHint } from "./hints.js";
 
 // Use-case layer shared by the command-line interface (cli.js) and the interactive
 // picker (interactive.js), so installing/removing a tool prints the same way from
@@ -25,7 +26,7 @@ export async function resolveTools(globalOpts) {
 
   const configured = Object.entries(listRegistries());
   if (configured.length === 0) {
-    console.error(pc.yellow('No registries configured. Run "ai-toolbox registry add <name> <owner/repo[@branch]>" first.'));
+    printNoRegistriesHint();
     return [];
   }
 
@@ -82,6 +83,12 @@ export async function removeOne(ctx, tool, scopeName) {
   console.log(pc.yellow(`  Removed ${tool.id} from ${scopeName}`));
 }
 removeOne.verb = "remove";
+
+export function viewOne(ctx, id) {
+  const tool = findTool(ctx, id);
+  if (!tool) return;
+  console.log(`${tool.id}  ${linkFor(tool.path, ctx.sourceRoot, tool.registry)}`);
+}
 
 export function outdatedIds(ctx, scopeName) {
   return ctx.tools
