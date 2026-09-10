@@ -1,6 +1,6 @@
 # Developing ai-toolbox
 
-Notes for working on the `ai-toolbox` CLI itself — not for the skills/rules it distributes. Read `README.md` first for what this project is.
+Notes for working on the `ai-toolbox` CLI itself — not for the skills/rules in this repo's own example registry (`registry.json`, `skills/`, `rules/`). Read `README.md` first for what this project is.
 
 ## Local development
 
@@ -62,3 +62,4 @@ To ship a CLI change: bump `package.json`'s version, merge to `main`. CI (`.gith
 - Skills stamp their installed version into `metadata.ai-toolbox-version` in their own `SKILL.md` frontmatter (`src/skillFrontmatter.js`); rules stamp it into an HTML comment marker in `CLAUDE.md` (`src/claudeMd.js`).
 - **`metadata` is the only frontmatter field safe for a skill's own custom data.** The Agent Skills spec allows exactly `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` for portable skills.
 - **`targetFileFor(tool, scopeName, repoRoot)` in `src/paths.js` is the one place that decides where a tool's installed artifact lives.** Everything that needs to read or write that artifact (installer, table, update-checking) goes through it — don't duplicate the user-vs-repo, skill-vs-rules path logic anywhere else.
+- **`src/cli.js` only wires up Commander** - argument/option definitions and which function handles each command. The actual use-case logic (resolving which tools are available, applying install/remove to one tool, computing what's outdated) lives in `src/toolActions.js`, so both the flag-driven commands and `src/interactive.js`'s picker install/remove a tool the same way instead of each reimplementing it.

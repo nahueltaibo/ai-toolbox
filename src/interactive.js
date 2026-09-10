@@ -3,7 +3,7 @@ import pc from "picocolors";
 import { renderTable } from "./table.js";
 import { promptForRepoRoot } from "./repoPrompt.js";
 import { expandScope } from "./scope.js";
-import { installTool, removeTool } from "./installer.js";
+import { installOne, removeOne } from "./toolActions.js";
 
 const ALL_TOOLS = "__all__";
 
@@ -69,13 +69,8 @@ export async function runInteractive(ctx, deps = { checkbox, select, confirm, pr
       continue;
     }
     for (const tool of selectedTools) {
-      if (action === "remove") {
-        removeTool(tool, scopeName, ctx);
-        console.log(pc.yellow(`  Removed ${tool.id} from ${scopeName}`));
-      } else {
-        await installTool(tool, scopeName, ctx);
-        console.log(pc.green(`  Installed ${tool.id} v${tool.version} -> ${scopeName}`));
-      }
+      if (action === "remove") await removeOne(ctx, tool, scopeName);
+      else await installOne(ctx, tool, scopeName);
     }
   }
 

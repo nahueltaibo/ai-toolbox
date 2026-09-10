@@ -1,16 +1,16 @@
 # ai-toolbox
 
-Personal AI tooling — skills, agents, rules, whatever shape a given piece takes — packaged so you can pull it into any machine or repo with one command, on whatever AI coding tool you use.
+A CLI for installing AI tooling — skills, rules, and whatever shape shows up next — into Claude Code, GitHub Copilot, or any tool that reads the same files. It ships with no registry built in: point it at your own, a coworker's, or [this repo's own example registry](#this-repos-own-registry), and it installs the same way either way.
 
 ## Install
 
 ```bash
 npm install -g @nahueltaibo/ai-toolbox
-ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox   # this repo's own tools
+ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox   # or any other registry - see below
 ai-toolbox interactive
 ```
 
-`ai-toolbox` ships with no registry built in — it's a generic installer, not tied to one catalog. `registry add` is a one-time step: point it at this repo for the tools below, your own fork, or a private company registry (see [Registries](#registries)). Everything after that is the normal flow.
+`registry add` is a one-time step per registry (see [Registries](#registries)). Everything after that is the normal flow.
 
 `ai-toolbox` with no arguments shows the commands it supports, same as `git` or `npm`. `ai-toolbox interactive` is the picker: a table of what's available, where each one is already installed (and at what version), and a walkthrough of picking what to install, update, or remove.
 
@@ -54,14 +54,7 @@ A registry just needs to look like this repo: a `registry.json` at the root, plu
 
 Want a one-off run against a single registry instead of the merged set? `--registry <owner/repo[@branch]>` overrides everything for that command, e.g. `ai-toolbox list --registry acme/internal-ai-tools@beta`.
 
-## What's inside
-
-| Name | Type | Description | Version |
-|---|---|---|---|
-| `markdown-authoring` | skill | Tone, structure, and formatting rules for writing `.md` files | 1.0.0 |
-| `output-guidelines` | rules | Writing rules for responses, comments, docs, and commits | 1.0.0 |
-
-Each entry lives in its own folder under the matching type (`skills/<id>/`, `rules/<id>/`, and more as they show up — `agents/`), written once in its natural format. `registry.json` is the catalog the installer reads — it's the source of truth for what version each one is on.
+## How tools install
 
 Skills and rules install differently:
 
@@ -93,6 +86,17 @@ That marker is the source of truth for the installed version, the same way a ski
 
 - **User-level**: `~/.claude/CLAUDE.md`
 - **Repo-level**: `<repo>/CLAUDE.md`
+
+## This repo's own registry
+
+`nahueltaibo/ai-toolbox` also publishes a small registry of its own — nothing special about it, just one more registry you can `registry add`:
+
+| Name | Type | Description | Version |
+| --- | --- | --- | --- |
+| `markdown-authoring` | skill | Tone, structure, and formatting rules for writing `.md` files | 1.0.0 |
+| `output-guidelines` | rules | Writing rules for responses, comments, docs, and commits | 1.0.0 |
+
+Each entry lives in its own folder under the matching type (`skills/<id>/`, `rules/<id>/`, and more as they show up — `agents/`), written once in its natural format. `registry.json` at the repo root is the catalog the installer reads — it's the source of truth for what version each one is on, and the exact shape any other registry needs to match (see [Registries](#registries)).
 
 ## License
 
