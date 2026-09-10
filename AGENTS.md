@@ -22,15 +22,20 @@ There's no registry built into the CLI - every one is something the user (or `--
 ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox     # this repo's own tools
 ai-toolbox registry add acme acme/internal-ai-tools            # branch defaults to main
 ai-toolbox registry add acme-beta acme/internal-ai-tools@beta
+ai-toolbox registry add local-dev ./my-registry                # local folder, same shape
 ai-toolbox registry list                                       # every saved one
 ai-toolbox registry remove acme-beta
 ```
 
+A registry spec is either `<owner>/<repo>[@branch]` (fetched from `raw.githubusercontent.com`) or a local filesystem path (`isLocalRegistry()` in `src/registry.js` tells them apart - absolute, or starting with `.`/`~`, is local; nothing else is, since a GitHub spec never starts with either). `registry add` resolves a local path to absolute at add time (`resolveLocalRegistryPath()`), so it stays correct regardless of which directory a later command runs from - the raw string typed is never what's persisted for a local spec.
+
 Saved registries live in `~/.ai-toolbox/config.json` (`src/config.js`) and are merged on every `list`/`install`/`update`/`interactive` — a tool from any of them installs the same way, by its plain `id`. If none are configured, `resolveTools()` prints a hint to run `registry add` and returns an empty tool list rather than fetching anything. If two registries define the same tool `id`, the first one loaded (in the order `registry add` was run) wins and the rest are skipped with a warning — pick non-colliding ids rather than relying on that order.
 
-`--registry <owner/repo[@branch]>` narrows a single run to *only* that one registry, bypassing the merge entirely (useful for a one-off test). `--source <path>` (local checkout, no network) takes priority over all of it. A registry only needs to match the shape this repo exposes publicly — a root `registry.json` plus the `skills/<id>/SKILL.md` and `rules/<id>/CONTENT.md` files it points at — nothing else here (`bin/`, `src/`, `package.json`) is ever fetched.
+`--registry <owner/repo[@branch]|path>` narrows a single run to *only* that one registry, bypassing the merge entirely (useful for a one-off test). `--source <path>` (local checkout, no network, and no `registry.json` merge at all) takes priority over all of it. A registry only needs to match the shape this repo exposes publicly — a root `registry.json` plus the `skills/<id>/SKILL.md` and `rules/<id>/CONTENT.md` files it points at — nothing else here (`bin/`, `src/`, `package.json`) is ever fetched.
 
-Resolution lives in `resolveRegistryBase()` in `src/registry.js` (turns one `owner/repo[@branch]` spec into a `raw.githubusercontent.com` URL) and `resolveTools()` in `src/cli.js` (decides `--source` vs. single-registry override vs. the merge, and does the merging). Each tool returned from the merge carries a `registry` field so `installer.js` knows which base to re-fetch its content from later.
+Resolution lives in `src/registry.js` (`resolveRegistryBase()` turns a GitHub spec into a `raw.githubusercontent.com` URL, `isLocalRegistry()`/`resolveLocalRegistryPath()`/`validateRegistrySpec()` handle the local-path shape, `fetchText()` picks between the two) and `resolveTools()` in `src/toolActions.js` (decides `--source` vs. single-registry override vs. the merge, and does the merging). Each tool returned from the merge carries a `registry` field so `installer.js` knows which base to re-fetch its content from later.
+
+**Private GitHub repos**: `raw.githubusercontent.com` is unauthenticated and returns a 404 for a private repo (it doesn't reveal the repo exists). `fetchFromGitHub()` in `src/registry.js` checks `process.env.GITHUB_TOKEN` first - unset, it uses the raw host as before (fast, CDN-backed, no rate-limit concerns for the common public case); set, it switches to `api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}` with `Authorization: Bearer <token>` and `Accept: application/vnd.github.v3.raw`, which works for both public and private repos. Don't default to the API path unconditionally - it's rate-limited far more aggressively (60/hr unauthenticated vs. the raw host's CDN) and the token is opt-in for a reason.
 
 ## Adding a tool
 
@@ -41,6 +46,8 @@ Drop a new folder under the matching type with its native file inside (`skills/<
 ```bash
 npm test        # node:test, zero extra dependency, runs everything in test/
 ```
+
+`test/lifecycle.test.js` is the one integration test that walks a full real journey through `buildProgram()` - `registry add` (a local folder, not `--source`) → install a skill and a rule → remove both → `registry remove` - plus a subprocess check that `bin/ai-toolbox.js` actually runs, standing in for "the app is installed" since real `npm install -g`/`npm uninstall -g` are npm's job, not this repo's to test. Everything else under `test/` is unit-level, one module at a time.
 
 Platform gotchas the test suite works around, worth knowing before adding more:
 

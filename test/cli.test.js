@@ -155,3 +155,19 @@ test("list with no registries configured prints without throwing", async () => {
 
   fs.rmSync(home, { recursive: true, force: true });
 });
+
+test("registry add accepts a local folder and it installs through the normal merge, not just --source", async () => {
+  const source = makeSourceRoot();
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "local-dev", source]);
+  assert.deepEqual(listRegistries(), { "local-dev": path.resolve(source) });
+
+  // No --source, no --registry - this only works if the merge path resolves a local registry too.
+  await buildProgram().parseAsync(["node", "ai-toolbox", "install", "demo-tool"]);
+  assert.equal(getFrontmatterVersion(fs.readFileSync(installedSkillPath("demo-tool"), "utf8")), "1.0.0");
+
+  fs.rmSync(source, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
+});

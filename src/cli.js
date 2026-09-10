@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import pc from "picocolors";
-import { resolveRegistryBase } from "./registry.js";
+import { validateRegistrySpec } from "./registry.js";
 import { renderTable } from "./table.js";
 import { runInteractive } from "./interactive.js";
 import { expandScope } from "./scope.js";
@@ -22,7 +22,7 @@ export function buildProgram() {
     .option("--target-repo <path>", "override repo-scope target instead of auto-detecting the git root")
     .option("--source <path>", "local ai-toolbox checkout to read from instead of GitHub")
     .option(
-      "--registry <owner/repo[@branch]>",
+      "--registry <owner/repo[@branch]|path>",
       "use only this registry for the command, instead of the merged set of `ai-toolbox registry add`ed ones"
     )
     .addHelpText(
@@ -33,6 +33,7 @@ Examples:
   $ ai-toolbox interactive
   $ ai-toolbox install output-guidelines
   $ ai-toolbox registry add acme acme/internal-ai-tools           # merge in as many as you want
+  $ ai-toolbox registry add local-dev ./my-registry               # or a local folder, same shape
   $ ai-toolbox registry list`
     )
     // Bare `ai-toolbox` shows what the CLI can do, same as `git`/`npm`/`gh` with no subcommand -
@@ -110,18 +111,19 @@ Examples:
     .description("manage registries - every one you add is merged for list/install/update");
 
   registryCmd
-    .command("add <name> <owner/repo[@branch]>")
-    .description("save a registry under a name so it's merged in")
+    .command("add <name> <owner/repo[@branch]|path>")
+    .description("save a registry under a name so it's merged in - a GitHub owner/repo[@branch] or a local folder")
     .action((name, spec) => {
+      let resolved;
       try {
-        resolveRegistryBase(spec);
+        resolved = validateRegistrySpec(spec);
       } catch (err) {
         console.error(pc.red(err.message));
         process.exitCode = 1;
         return;
       }
-      addRegistry(name, spec);
-      console.log(pc.green(`Added registry "${name}" -> ${spec}`));
+      addRegistry(name, resolved);
+      console.log(pc.green(`Added registry "${name}" -> ${resolved}`));
     });
 
   registryCmd

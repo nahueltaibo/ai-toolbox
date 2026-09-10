@@ -44,15 +44,28 @@ Every registry is something you added — there's no built-in one. Add as many a
 ai-toolbox registry add nahueltaibo nahueltaibo/ai-toolbox     # this repo's own tools
 ai-toolbox registry add acme acme/internal-ai-tools            # branch defaults to main
 ai-toolbox registry add acme-beta acme/internal-ai-tools@beta
+ai-toolbox registry add local-dev ./my-registry                # a local folder works too
 ai-toolbox registry list
 ai-toolbox registry remove acme-beta
 ```
+
+A registry is either a GitHub `owner/repo[@branch]` or a path to a local folder — useful for developing a registry before pushing it anywhere. A relative path is resolved against the directory you ran `registry add` from, so it keeps working no matter where you run `ai-toolbox` from later.
 
 Install by plain id regardless of which registry it came from — `ai-toolbox install some-tool` finds it wherever it lives. If two registries define the same id, whichever loads first wins (in the order you ran `registry add`), and you'll see a warning about the one that got skipped — worth avoiding rather than relying on.
 
 A registry just needs to look like this repo: a `registry.json` at the root, plus the `skills/<id>/SKILL.md` or `rules/<id>/CONTENT.md` files it points to.
 
-Want a one-off run against a single registry instead of the merged set? `--registry <owner/repo[@branch]>` overrides everything for that command, e.g. `ai-toolbox list --registry acme/internal-ai-tools@beta`.
+Want a one-off run against a single registry instead of the merged set? `--registry <owner/repo[@branch]|path>` overrides everything for that command, e.g. `ai-toolbox list --registry acme/internal-ai-tools@beta`.
+
+### Private GitHub registries
+
+A GitHub registry is fetched unauthenticated by default, which only works for public repos. Set `GITHUB_TOKEN` (the same env var `gh` and GitHub Actions use) to a token with read access, and `ai-toolbox` switches to GitHub's authenticated API instead — same commands, no other setup:
+
+```bash
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
+ai-toolbox registry add acme acme/internal-ai-tools-private
+ai-toolbox install some-tool
+```
 
 ## How tools install
 
