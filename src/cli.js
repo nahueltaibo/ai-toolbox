@@ -7,7 +7,7 @@ import { validateRegistrySpec, fetchRegistry, isLocalRegistry } from "./registry
 import { renderTable } from "./table.js";
 import { runInteractive } from "./interactive.js";
 import { expandScope } from "./scope.js";
-import { addRegistry, removeRegistry, listRegistries } from "./config.js";
+import { addRegistry, removeRegistry, listRegistries, normalizeRegistryEntry } from "./config.js";
 import { loadContext, applyToOne, installOne, removeOne, outdatedIds, viewOne } from "./toolActions.js";
 import { printNoRegistriesHint, printNextStepsHint } from "./hints.js";
 
@@ -126,7 +126,8 @@ Examples:
   registryCmd
     .command("add <name> <owner/repo[@branch]|path>")
     .description("save a registry under a name so it's merged in - a GitHub owner/repo[@branch] or a local folder")
-    .action(async (name, spec) => {
+    .option("--token-env <ENV_VAR_NAME>", "env var holding a GitHub token for this registry, if it's private (defaults to GITHUB_TOKEN)")
+    .action(async (name, spec, opts) => {
       let resolved;
       try {
         resolved = validateRegistrySpec(spec);
@@ -135,8 +136,9 @@ Examples:
         process.exitCode = 1;
         return;
       }
-      addRegistry(name, resolved);
-      console.log(pc.green(`Added registry "${name}" -> ${resolved}`));
+      addRegistry(name, resolved, { tokenEnv: opts.tokenEnv });
+      const tokenNote = opts.tokenEnv ? ` (token: $${opts.tokenEnv})` : "";
+      console.log(pc.green(`Added registry "${name}" -> ${resolved}${tokenNote}`));
 
       // Only read the registry for a real example id when it's local (instant, no
       // network) - a GitHub spec falls back to a <id> placeholder rather than paying
@@ -171,7 +173,10 @@ Examples:
         printNoRegistriesHint();
         return;
       }
-      for (const [name, spec] of entries) console.log(`${name}  ${spec}`);
+      for (const [name, entry] of entries) {
+        const { spec, tokenEnv } = normalizeRegistryEntry(entry);
+        console.log(tokenEnv ? `${name}  ${spec}  (token: $${tokenEnv})` : `${name}  ${spec}`);
+      }
     });
 
   return program;

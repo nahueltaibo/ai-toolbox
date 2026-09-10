@@ -263,3 +263,51 @@ test("list with no registries configured hints registry add with a copy-pasteabl
 
   fs.rmSync(home, { recursive: true, force: true });
 });
+
+test("registry add --token-env persists and displays the env var name", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+
+  const addLines = await withCapturedOutput(() =>
+    buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "acme", "acme/private-tools", "--token-env", "ACME_GH_TOKEN"]),
+  );
+  assert.ok(addLines.some((l) => l.includes('(token: $ACME_GH_TOKEN)')));
+  assert.deepEqual(listRegistries(), { acme: { spec: "acme/private-tools", tokenEnv: "ACME_GH_TOKEN" } });
+
+  const listLines = await withCapturedOutput(() => buildProgram().parseAsync(["node", "ai-toolbox", "registry", "list"]));
+  assert.ok(listLines.some((l) => l.includes("acme") && l.includes("$ACME_GH_TOKEN")));
+
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("a registry's own --token-env is used to fetch it, not the plain GITHUB_TOKEN", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ai-toolbox-home-"));
+  withHome(home);
+  const prevGithubToken = process.env.GITHUB_TOKEN;
+  const prevAcmeToken = process.env.ACME_GH_TOKEN;
+  delete process.env.GITHUB_TOKEN;
+  process.env.ACME_GH_TOKEN = "acme-token-789";
+
+  await buildProgram().parseAsync(["node", "ai-toolbox", "registry", "add", "acme", "acme/private-tools", "--token-env", "ACME_GH_TOKEN"]);
+
+  let calledUrl, calledOpts;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    calledUrl = url;
+    calledOpts = opts;
+    return { ok: true, text: async () => JSON.stringify({ tools: [] }) };
+  };
+  try {
+    await buildProgram().parseAsync(["node", "ai-toolbox", "list"]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(calledUrl, "https://api.github.com/repos/acme/private-tools/contents/registry.json?ref=main");
+  assert.equal(calledOpts.headers.Authorization, "Bearer acme-token-789");
+
+  if (prevGithubToken === undefined) delete process.env.GITHUB_TOKEN;
+  else process.env.GITHUB_TOKEN = prevGithubToken;
+  if (prevAcmeToken === undefined) delete process.env.ACME_GH_TOKEN;
+  else process.env.ACME_GH_TOKEN = prevAcmeToken;
+  fs.rmSync(home, { recursive: true, force: true });
+});

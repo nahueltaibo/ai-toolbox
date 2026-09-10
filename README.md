@@ -70,6 +70,14 @@ ai-toolbox registry add acme acme/internal-ai-tools-private
 ai-toolbox install some-tool
 ```
 
+Got more than one private registry, or already using `GITHUB_TOKEN` for something else? Point a registry at a different env var instead of the default:
+
+```bash
+ai-toolbox registry add acme acme/internal-ai-tools-private --token-env ACME_GH_TOKEN
+```
+
+`ai-toolbox` never stores the token itself — only the env var's name, so whatever already manages that token (your shell profile, `gh auth`, a company secrets tool, CI) keeps owning its lifecycle. If it expires or gets revoked, the next fetch fails with a clear error naming the env var and telling you to renew it, rather than a bare HTTP status code.
+
 ## How tools install
 
 Skills and rules install differently:

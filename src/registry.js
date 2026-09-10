@@ -71,11 +71,13 @@ export function validateRegistrySpec(spec) {
 
 // raw.githubusercontent.com is unauthenticated and only ever serves public repos - fine,
 // and preferred, for the common case. A private repo needs the Contents API instead, with
-// a token, so GITHUB_TOKEN (the same env var `gh` and GitHub Actions use) switches to that
-// path. Unauthenticated requests keep using the raw host, unaffected by the API's much
-// lower rate limit.
-async function fetchFromGitHub(registrySpec, relativePath) {
-  const token = process.env.GITHUB_TOKEN;
+// a token - tokenEnvName names the env var to read it from, GITHUB_TOKEN (the same one
+// `gh` and GitHub Actions use) by default, but a registry can be configured with its own
+// (`registry add ... --token-env`) so different private registries can use different
+// tokens in the same run. Unauthenticated requests keep using the raw host, unaffected by
+// the API's much lower rate limit.
+async function fetchFromGitHub(registrySpec, relativePath, tokenEnvName = "GITHUB_TOKEN") {
+  const token = process.env[tokenEnvName];
   if (!token) {
     const base = resolveRegistryBase(registrySpec);
     const response = await fetch(`${base}/${relativePath}`);
@@ -88,6 +90,12 @@ async function fetchFromGitHub(registrySpec, relativePath) {
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3.raw" },
   });
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(
+      `GitHub rejected the token in $${tokenEnvName} (${response.status}) while fetching ${relativePath} - ` +
+        `it looks expired, revoked, or missing access to "${repo}". Generate a new token, update $${tokenEnvName}, and try again.`
+    );
+  }
   if (!response.ok) throw new Error(`Failed to fetch ${relativePath}: ${response.status}`);
   return response.text();
 }
@@ -96,18 +104,18 @@ function resolveLocalRoot(sourceRoot, registry) {
   return sourceRoot || (isLocalRegistry(registry) ? registry : null);
 }
 
-export async function fetchText(relativePath, sourceRoot, registry) {
+export async function fetchText(relativePath, sourceRoot, registry, tokenEnvName) {
   const localRoot = resolveLocalRoot(sourceRoot, registry);
   if (localRoot) {
     const filePath = path.join(localRoot, relativePath);
     if (!fs.existsSync(filePath)) throw new Error(`Not found: ${filePath}`);
     return fs.readFileSync(filePath, "utf8");
   }
-  return fetchFromGitHub(registry, relativePath);
+  return fetchFromGitHub(registry, relativePath, tokenEnvName);
 }
 
-export async function fetchRegistry(sourceRoot, registry) {
-  const text = await fetchText("registry.json", sourceRoot, registry);
+export async function fetchRegistry(sourceRoot, registry, tokenEnvName) {
+  const text = await fetchText("registry.json", sourceRoot, registry, tokenEnvName);
   const parsed = JSON.parse(text);
   return parsed.tools ?? [];
 }

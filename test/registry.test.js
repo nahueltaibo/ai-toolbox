@@ -189,6 +189,37 @@ test("fetchText surfaces a non-ok GitHub response as an error", async () => {
   );
 });
 
+test("fetchText reads the token from a custom env var name when the registry has one", async () => {
+  const prev = process.env.ACME_TOKEN;
+  process.env.ACME_TOKEN = "custom-token-456";
+  let calledOpts;
+  const mockFetch = async (url, opts) => {
+    calledOpts = opts;
+    return { ok: true, text: async () => "content" };
+  };
+  try {
+    await withGitHubToken(null, () =>
+      withMockFetch(mockFetch, () => fetchText("registry.json", undefined, "acme/private-tools", "ACME_TOKEN")),
+    );
+  } finally {
+    if (prev === undefined) delete process.env.ACME_TOKEN;
+    else process.env.ACME_TOKEN = prev;
+  }
+  assert.equal(calledOpts.headers.Authorization, "Bearer custom-token-456");
+});
+
+test("fetchText gives a clear, actionable error on a 401/403 - names the env var, suggests renewing it", async () => {
+  const mockFetch = async () => ({ ok: false, status: 401 });
+  await withGitHubToken("stale-token", () =>
+    withMockFetch(mockFetch, async () => {
+      await assert.rejects(
+        () => fetchText("registry.json", undefined, "acme/private-tools", "GITHUB_TOKEN"),
+        /GitHub rejected the token in \$GITHUB_TOKEN \(401\).*expired, revoked, or missing access to "acme\/private-tools".*Generate a new token, update \$GITHUB_TOKEN/s,
+      );
+    }),
+  );
+});
+
 test("linkFor points at a GitHub blob URL for a GitHub registry", () => {
   assert.equal(
     linkFor("rules/output-guidelines/CONTENT.md", undefined, "acme/tools@release"),

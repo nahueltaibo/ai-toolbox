@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { configPath, readConfig, listRegistries, addRegistry, removeRegistry } from "../src/config.js";
+import { configPath, readConfig, listRegistries, addRegistry, removeRegistry, normalizeRegistryEntry } from "../src/config.js";
 
 async function withHome(dir, fn) {
   const prevHome = process.env.HOME;
@@ -68,4 +68,21 @@ test("removeRegistry deletes a saved registry and reports whether it existed", a
     assert.equal(removeRegistry("acme"), false);
   });
   fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("addRegistry with a tokenEnv persists an object instead of a plain string", async () => {
+  const home = makeHome();
+  await withHome(home, () => {
+    addRegistry("acme", "acme/private-tools", { tokenEnv: "ACME_GH_TOKEN" });
+    assert.deepEqual(listRegistries(), { acme: { spec: "acme/private-tools", tokenEnv: "ACME_GH_TOKEN" } });
+  });
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("normalizeRegistryEntry handles both the plain-string and the {spec,tokenEnv} shape", () => {
+  assert.deepEqual(normalizeRegistryEntry("acme/tools"), { spec: "acme/tools", tokenEnv: undefined });
+  assert.deepEqual(normalizeRegistryEntry({ spec: "acme/private-tools", tokenEnv: "ACME_GH_TOKEN" }), {
+    spec: "acme/private-tools",
+    tokenEnv: "ACME_GH_TOKEN",
+  });
 });

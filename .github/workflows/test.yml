@@ -21,3 +21,8 @@ jobs:
       - run: npm ci
       - run: npm pack --dry-run
       - run: npm test
+        env:
+          # A PAT with read access to nahueltaibo/ai-toolbox-registry (a private repo used only
+          # for testing private-registry support) - test/privateRegistry.test.js skips itself
+          # when this isn't set, so CI stays green whether or not the secret exists yet.
+          PRIVATE_REGISTRY_TEST_TOKEN: ${{ secrets.PRIVATE_REGISTRY_TEST_TOKEN }}

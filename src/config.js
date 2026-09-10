@@ -25,13 +25,21 @@ function writeConfig(config) {
   fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
+// A registry entry is a plain spec string in the common case, or { spec, tokenEnv }
+// when it needs a specific env var for a private GitHub repo - normalizing here
+// means every reader handles both shapes the same way, in one place.
+export function normalizeRegistryEntry(entry) {
+  if (typeof entry === "string") return { spec: entry, tokenEnv: undefined };
+  return { spec: entry.spec, tokenEnv: entry.tokenEnv };
+}
+
 export function listRegistries() {
   return readConfig().registries;
 }
 
-export function addRegistry(name, spec) {
+export function addRegistry(name, spec, { tokenEnv } = {}) {
   const config = readConfig();
-  config.registries[name] = spec;
+  config.registries[name] = tokenEnv ? { spec, tokenEnv } : spec;
   writeConfig(config);
 }
 
