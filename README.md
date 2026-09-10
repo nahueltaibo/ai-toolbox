@@ -78,6 +78,11 @@ ai-toolbox registry add acme acme/internal-ai-tools-private --token-env ACME_GH_
 
 `ai-toolbox` never stores the token itself — only the env var's name, so whatever already manages that token (your shell profile, `gh auth`, a company secrets tool, CI) keeps owning its lifecycle. If it expires or gets revoked, the next fetch fails with a clear error naming the env var and telling you to renew it, rather than a bare HTTP status code.
 
+**What the token needs:** read access to the repo's contents, nothing else.
+
+- **Fine-grained PAT (recommended)** — scope it to just that one repo (or the set you need), and grant **Contents: Read-only**. GitHub adds **Metadata: Read-only** automatically; that's a mandatory baseline, not something extra you're granting. Leave everything else at "No access."
+- **Classic PAT** — GitHub doesn't offer a narrower option for a private repo: it's the full **`repo`** scope or nothing (`public_repo` only covers public repos). That's broader than `ai-toolbox` actually uses, which is exactly why the fine-grained option above is the better fit.
+
 ## How tools install
 
 Skills and rules install differently:
